@@ -2,7 +2,6 @@
 
 import type React from "react";
 import { useState } from "react";
-import { toast } from "sonner";
 import {
   CheckCircle2,
   Circle,
@@ -13,7 +12,6 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { createClientSupabaseClient } from "@/lib/supabase-client";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -38,157 +36,43 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Task, TaskPriority } from "@/types";
-import { priorityIcons, priorityLabels, getErrorMessage } from "./list-utils";
+import { priorityIcons, priorityLabels } from "./list-utils";
+import { useTasks } from "@/hooks/use-supabase";
 
 interface TaskListProps {
   initialTasks: Task[];
 }
 
 export function TaskList({ initialTasks }: TaskListProps) {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskPriority, setNewTaskPriority] =
     useState<TaskPriority>("medium");
   const [newTaskHours, setNewTaskHours] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(false);
-  const supabase = createClientSupabaseClient();
 
-  const addTask = async (e: React.FormEvent) => {
+  const {
+    tasks,
+    isLoading,
+    addTask,
+    toggleTaskCompletion,
+    updateTaskPriority,
+    updateTaskHours,
+    deleteTask,
+  } = useTasks(initialTasks);
+
+  const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!newTaskTitle.trim()) return;
-
-    setIsLoading(true);
-
-    try {
-      const { data, error } = await supabase
-        .from("tasks")
-        .insert({
-          title: newTaskTitle,
-          completed: false,
-          priority: newTaskPriority,
-          estimated_hours: newTaskHours
-            ? Number.parseFloat(newTaskHours)
-            : null,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setTasks([data, ...tasks]);
+    const success = await addTask(newTaskTitle, newTaskPriority, newTaskHours);
+    if (success) {
       setNewTaskTitle("");
       setNewTaskPriority("medium");
       setNewTaskHours("");
-
-      toast.success("Task added", {
-        description: "Your task has been added successfully.",
-      });
-    } catch (error: unknown) {
-      toast.error("Failed to add task", {
-        description:
-          getErrorMessage(error) || "Something went wrong. Please try again.",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const toggleTaskCompletion = async (taskId: string, completed: boolean) => {
-    try {
-      const { error } = await supabase
-        .from("tasks")
-        .update({ completed: !completed })
-        .eq("id", taskId);
-
-      if (error) throw error;
-
-      setTasks(
-        tasks.map((task) =>
-          task.id === taskId ? { ...task, completed: !completed } : task,
-        ),
-      );
-    } catch (error: unknown) {
-      toast.error("Failed to update task", {
-        description:
-          getErrorMessage(error) || "Something went wrong. Please try again.",
-      });
-    }
-  };
-
-  const updateTaskPriority = async (taskId: string, priority: TaskPriority) => {
-    try {
-      const { error } = await supabase
-        .from("tasks")
-        .update({ priority })
-        .eq("id", taskId);
-
-      if (error) throw error;
-
-      setTasks(
-        tasks.map((task) =>
-          task.id === taskId ? { ...task, priority } : task,
-        ),
-      );
-
-      toast.success("Priority updated");
-    } catch (error: unknown) {
-      toast.error("Failed to update priority", {
-        description:
-          getErrorMessage(error) || "Something went wrong. Please try again.",
-      });
-    }
-  };
-
-  const updateTaskHours = async (taskId: string, hoursStr: string) => {
-    const hours = hoursStr ? Number.parseFloat(hoursStr) : null;
-
-    try {
-      const { error } = await supabase
-        .from("tasks")
-        .update({ estimated_hours: hours })
-        .eq("id", taskId);
-
-      if (error) throw error;
-
-      setTasks(
-        tasks.map((task) =>
-          task.id === taskId ? { ...task, estimated_hours: hours } : task,
-        ),
-      );
-
-      toast.success("Estimated hours updated");
-    } catch (error: unknown) {
-      toast.error("Failed to update hours", {
-        description:
-          getErrorMessage(error) || "Something went wrong. Please try again.",
-      });
-    }
-  };
-
-  const deleteTask = async (taskId: string) => {
-    try {
-      const { error } = await supabase.from("tasks").delete().eq("id", taskId);
-
-      if (error) throw error;
-
-      setTasks(tasks.filter((task) => task.id !== taskId));
-
-      toast.success("Task deleted", {
-        description: "Your task has been deleted successfully.",
-      });
-    } catch (error: unknown) {
-      toast.error("Failed to delete task", {
-        description:
-          getErrorMessage(error) || "Something went wrong. Please try again.",
-      });
     }
   };
 
   return (
     <Card>
       <CardHeader className="p-4 pb-0">
-        <form onSubmit={addTask} className="grid gap-4 sm:grid-cols-4">
+        <form onSubmit={handleAddTask} className="grid gap-4 sm:grid-cols-4">
           <div className="sm:col-span-2">
             <Input
               placeholder="Add a new task..."

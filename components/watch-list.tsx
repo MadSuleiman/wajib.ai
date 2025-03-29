@@ -2,7 +2,6 @@
 
 import type React from "react";
 import { useState } from "react";
-import { toast } from "sonner";
 import {
   CheckCircle2,
   Circle,
@@ -13,7 +12,6 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { createClientSupabaseClient } from "@/lib/supabase-client";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -38,160 +36,43 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { WatchItem, TaskPriority } from "@/types";
-import { priorityIcons, priorityLabels, getErrorMessage } from "./list-utils";
+import { priorityIcons, priorityLabels } from "./list-utils";
+import { useWatchItems } from "@/hooks/use-supabase";
 
 interface WatchListProps {
   initialItems: WatchItem[];
 }
 
 export function WatchList({ initialItems }: WatchListProps) {
-  const [items, setItems] = useState<WatchItem[]>(initialItems);
   const [newItemTitle, setNewItemTitle] = useState("");
   const [newItemPriority, setNewItemPriority] =
     useState<TaskPriority>("medium");
   const [newItemHours, setNewItemHours] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(false);
-  const supabase = createClientSupabaseClient();
 
-  const addItem = async (e: React.FormEvent) => {
+  const {
+    items,
+    isLoading,
+    addItem,
+    toggleItemCompletion,
+    updateItemPriority,
+    updateItemHours,
+    deleteItem,
+  } = useWatchItems(initialItems);
+
+  const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!newItemTitle.trim()) return;
-
-    setIsLoading(true);
-
-    try {
-      const { data, error } = await supabase
-        .from("watch_items")
-        .insert({
-          title: newItemTitle,
-          completed: false,
-          priority: newItemPriority,
-          estimated_hours: newItemHours
-            ? Number.parseFloat(newItemHours)
-            : null,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setItems([data, ...items]);
+    const success = await addItem(newItemTitle, newItemPriority, newItemHours);
+    if (success) {
       setNewItemTitle("");
       setNewItemPriority("medium");
       setNewItemHours("");
-
-      toast.success("Item added", {
-        description: "Your watch item has been added successfully.",
-      });
-    } catch (error: unknown) {
-      toast.error("Failed to add item", {
-        description:
-          getErrorMessage(error) || "Something went wrong. Please try again.",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const toggleItemCompletion = async (itemId: string, completed: boolean) => {
-    try {
-      const { error } = await supabase
-        .from("watch_items")
-        .update({ completed: !completed })
-        .eq("id", itemId);
-
-      if (error) throw error;
-
-      setItems(
-        items.map((item) =>
-          item.id === itemId ? { ...item, completed: !completed } : item,
-        ),
-      );
-    } catch (error: unknown) {
-      toast.error("Failed to update item", {
-        description:
-          getErrorMessage(error) || "Something went wrong. Please try again.",
-      });
-    }
-  };
-
-  const updateItemPriority = async (itemId: string, priority: TaskPriority) => {
-    try {
-      const { error } = await supabase
-        .from("watch_items")
-        .update({ priority })
-        .eq("id", itemId);
-
-      if (error) throw error;
-
-      setItems(
-        items.map((item) =>
-          item.id === itemId ? { ...item, priority } : item,
-        ),
-      );
-
-      toast.success("Priority updated");
-    } catch (error: unknown) {
-      toast.error("Failed to update priority", {
-        description:
-          getErrorMessage(error) || "Something went wrong. Please try again.",
-      });
-    }
-  };
-
-  const updateItemHours = async (itemId: string, hoursStr: string) => {
-    const hours = hoursStr ? Number.parseFloat(hoursStr) : null;
-
-    try {
-      const { error } = await supabase
-        .from("watch_items")
-        .update({ estimated_hours: hours })
-        .eq("id", itemId);
-
-      if (error) throw error;
-
-      setItems(
-        items.map((item) =>
-          item.id === itemId ? { ...item, estimated_hours: hours } : item,
-        ),
-      );
-
-      toast.success("Estimated hours updated");
-    } catch (error: unknown) {
-      toast.error("Failed to update hours", {
-        description:
-          getErrorMessage(error) || "Something went wrong. Please try again.",
-      });
-    }
-  };
-
-  const deleteItem = async (itemId: string) => {
-    try {
-      const { error } = await supabase
-        .from("watch_items")
-        .delete()
-        .eq("id", itemId);
-
-      if (error) throw error;
-
-      setItems(items.filter((item) => item.id !== itemId));
-
-      toast.success("Item deleted", {
-        description: "Your watch item has been deleted successfully.",
-      });
-    } catch (error: unknown) {
-      toast.error("Failed to delete item", {
-        description:
-          getErrorMessage(error) || "Something went wrong. Please try again.",
-      });
     }
   };
 
   return (
     <Card>
       <CardHeader className="p-4 pb-0">
-        <form onSubmit={addItem} className="grid gap-4 sm:grid-cols-4">
+        <form onSubmit={handleAddItem} className="grid gap-4 sm:grid-cols-4">
           <div className="sm:col-span-2">
             <Input
               placeholder="Add a movie or show to watch..."
