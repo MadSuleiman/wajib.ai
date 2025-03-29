@@ -1,5 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
-import { ShoppingList } from "@/components/task-list";
+import { ShoppingList } from "@/components/shopping-list";
 import { PageHeader } from "@/components/page-header";
 import type { ShoppingItem } from "@/types";
 

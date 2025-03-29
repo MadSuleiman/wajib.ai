@@ -17,9 +17,19 @@ export default async function DashboardLayout({
     redirect("/auth");
   }
 
+  // Get authenticated user data from the server rather than the session
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Add null check for user
+  if (!user) {
+    redirect("/auth");
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
-      <Navigation user={session.user} />
+      <Navigation user={user} />
       <main className="flex-1 p-4 pb-20 md:p-6 md:pb-6">{children}</main>
     </div>
   );

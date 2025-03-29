@@ -1,5 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
-import { WatchList } from "@/components/task-list";
+import { WatchList } from "@/components/watch-list";
 import { PageHeader } from "@/components/page-header";
 import type { WatchItem } from "@/types";
 
