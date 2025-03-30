@@ -2,6 +2,7 @@ import type React from "react";
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Toaster } from "sonner";
+import { Suspense } from "react";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ZoomPrevention } from "@/components/anti-zoom";
@@ -49,7 +50,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <Suspense
+            fallback={<div className="min-h-screen bg-background"></div>}
+          >
+            {children}
+          </Suspense>
           <Toaster position="top-right" />
         </ThemeProvider>
       </body>
