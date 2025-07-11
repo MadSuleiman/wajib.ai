@@ -1,7 +1,6 @@
 "use client";
 
-import type React from "react";
-import { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { CheckCircle2, Circle, Loader2, Plus, Trash2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -28,6 +27,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import type { ShoppingItem, TaskPriority } from "@/types";
 import { priorityIcons, priorityLabels } from "./list-utils";
 import { useShoppingItems } from "@/hooks/use-supabase";
@@ -40,6 +41,7 @@ export function ShoppingList({ initialItems }: ShoppingListProps) {
   const [newItemTitle, setNewItemTitle] = useState("");
   const [newItemPriority, setNewItemPriority] =
     useState<TaskPriority>("medium");
+  const [showCompleted, setShowCompleted] = useState(true);
 
   const {
     items,
@@ -59,47 +61,68 @@ export function ShoppingList({ initialItems }: ShoppingListProps) {
     }
   };
 
+  const filteredItems = useMemo(() => {
+    if (showCompleted) {
+      return items;
+    }
+    return items.filter((item) => !item.completed);
+  }, [items, showCompleted]);
+
   return (
     <Card>
       <CardHeader className="p-4 pb-0">
-        <form onSubmit={handleAddItem} className="grid gap-4 sm:grid-cols-3">
-          <div className="sm:col-span-2">
-            <Input
-              placeholder="Add a shopping item..."
-              value={newItemTitle}
-              onChange={(e) => setNewItemTitle(e.target.value)}
-              disabled={isLoading}
+        <div className="flex flex-col gap-4">
+          <form onSubmit={handleAddItem} className="grid gap-4 sm:grid-cols-3">
+            <div className="sm:col-span-2">
+              <Input
+                placeholder="Add a shopping item..."
+                value={newItemTitle}
+                onChange={(e) => setNewItemTitle(e.target.value)}
+                disabled={isLoading}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Select
+                value={newItemPriority}
+                onValueChange={(value: TaskPriority) =>
+                  setNewItemPriority(value)
+                }
+                disabled={isLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button type="submit" size="icon" disabled={isLoading}>
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </form>
+          <div className="flex items-center justify-end space-x-2 py-2">
+            <Switch
+              id="show-completed-shopping"
+              checked={showCompleted}
+              onCheckedChange={setShowCompleted}
             />
+            <Label htmlFor="show-completed-shopping">Show completed items</Label>
           </div>
-          <div className="flex gap-2">
-            <Select
-              value={newItemPriority}
-              onValueChange={(value: TaskPriority) => setNewItemPriority(value)}
-              disabled={isLoading}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Priority" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button type="submit" size="icon" disabled={isLoading}>
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
-        </form>
+        </div>
       </CardHeader>
       <CardContent className="p-4">
-        {items.length === 0 ? (
+        {filteredItems.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">
-            No items yet. Add your first one above.
+            {items.length === 0
+              ? "No items yet. Add your first one above."
+              : "No items match your current filter."}
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -113,7 +136,7 @@ export function ShoppingList({ initialItems }: ShoppingListProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {items.map((item) => (
+                {filteredItems.map((item) => (
                   <TableRow
                     key={item.id}
                     className={cn(item.completed && "bg-muted")}
@@ -203,8 +226,8 @@ export function ShoppingList({ initialItems }: ShoppingListProps) {
         )}
       </CardContent>
       <CardFooter className="border-t p-4 text-sm text-muted-foreground">
-        {items.filter((item) => item.completed).length} of {items.length}{" "}
-        completed
+        Showing {filteredItems.length} of {items.length} items. (
+        {items.filter((item) => item.completed).length} completed)
       </CardFooter>
     </Card>
   );
