@@ -1,7 +1,6 @@
 "use client";
 
-import type React from "react";
-import { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   CheckCircle2,
   Circle,
@@ -35,6 +34,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import type { Task, TaskPriority } from "@/types";
 import { priorityIcons, priorityLabels } from "./list-utils";
 import { useTasks } from "@/hooks/use-supabase";
@@ -48,6 +49,7 @@ export function TaskList({ initialTasks }: TaskListProps) {
   const [newTaskPriority, setNewTaskPriority] =
     useState<TaskPriority>("medium");
   const [newTaskHours, setNewTaskHours] = useState<string>("");
+  const [showCompleted, setShowCompleted] = useState(false);
 
   const {
     tasks,
@@ -69,58 +71,79 @@ export function TaskList({ initialTasks }: TaskListProps) {
     }
   };
 
+  const filteredTasks = useMemo(() => {
+    if (showCompleted) {
+      return tasks;
+    }
+    return tasks.filter((task) => !task.completed);
+  }, [tasks, showCompleted]);
+
   return (
     <Card>
       <CardHeader className="p-4 pb-0">
-        <form onSubmit={handleAddTask} className="grid gap-4 sm:grid-cols-4">
-          <div className="sm:col-span-2">
-            <Input
-              placeholder="Add a new task..."
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              disabled={isLoading}
+        <div className="flex flex-col gap-4">
+          <form onSubmit={handleAddTask} className="grid gap-4 sm:grid-cols-4">
+            <div className="sm:col-span-2">
+              <Input
+                placeholder="Add a new task..."
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                disabled={isLoading}
+              />
+            </div>
+            <div>
+              <Select
+                value={newTaskPriority}
+                onValueChange={(value: TaskPriority) =>
+                  setNewTaskPriority(value)
+                }
+                disabled={isLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Hours"
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={newTaskHours}
+                onChange={(e) => setNewTaskHours(e.target.value)}
+                disabled={isLoading}
+              />
+              <Button type="submit" size="icon" disabled={isLoading}>
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </form>
+          <div className="flex items-center justify-end space-x-2 py-2">
+            <Switch
+              id="show-completed-tasks"
+              checked={showCompleted}
+              onCheckedChange={setShowCompleted}
             />
+            <Label htmlFor="show-completed-tasks">Show completed tasks</Label>
           </div>
-          <div>
-            <Select
-              value={newTaskPriority}
-              onValueChange={(value: TaskPriority) => setNewTaskPriority(value)}
-              disabled={isLoading}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Priority" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex gap-2">
-            <Input
-              placeholder="Hours"
-              type="number"
-              min="0.1"
-              step="0.1"
-              value={newTaskHours}
-              onChange={(e) => setNewTaskHours(e.target.value)}
-              disabled={isLoading}
-            />
-            <Button type="submit" size="icon" disabled={isLoading}>
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
-        </form>
+        </div>
       </CardHeader>
       <CardContent className="p-4">
-        {tasks.length === 0 ? (
+        {filteredTasks.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">
-            No tasks yet. Add your first one above.
+            {tasks.length === 0
+              ? "No tasks yet. Add your first one above."
+              : "No tasks match your current filter."}
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -135,7 +158,7 @@ export function TaskList({ initialTasks }: TaskListProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tasks.map((task) => (
+                {filteredTasks.map((task) => (
                   <TableRow
                     key={task.id}
                     className={cn(task.completed && "bg-muted")}
@@ -240,8 +263,8 @@ export function TaskList({ initialTasks }: TaskListProps) {
         )}
       </CardContent>
       <CardFooter className="border-t p-4 text-sm text-muted-foreground">
-        {tasks.filter((task) => task.completed).length} of {tasks.length}{" "}
-        completed
+        Showing {filteredTasks.length} of {tasks.length} tasks. (
+        {tasks.filter((task) => task.completed).length} completed)
       </CardFooter>
     </Card>
   );

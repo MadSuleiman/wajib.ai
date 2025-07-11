@@ -1,7 +1,6 @@
 "use client";
 
-import type React from "react";
-import { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   CheckCircle2,
   Circle,
@@ -35,6 +34,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import type { WatchItem, TaskPriority } from "@/types";
 import { priorityIcons, priorityLabels } from "./list-utils";
 import { useWatchItems } from "@/hooks/use-supabase";
@@ -48,6 +49,7 @@ export function WatchList({ initialItems }: WatchListProps) {
   const [newItemPriority, setNewItemPriority] =
     useState<TaskPriority>("medium");
   const [newItemHours, setNewItemHours] = useState<string>("");
+  const [showCompleted, setShowCompleted] = useState(false); // "completed" means "watched" here
 
   const {
     items,
@@ -69,58 +71,79 @@ export function WatchList({ initialItems }: WatchListProps) {
     }
   };
 
+  const filteredItems = useMemo(() => {
+    if (showCompleted) {
+      return items;
+    }
+    return items.filter((item) => !item.completed);
+  }, [items, showCompleted]);
+
   return (
     <Card>
       <CardHeader className="p-4 pb-0">
-        <form onSubmit={handleAddItem} className="grid gap-4 sm:grid-cols-4">
-          <div className="sm:col-span-2">
-            <Input
-              placeholder="Add a movie or show to watch..."
-              value={newItemTitle}
-              onChange={(e) => setNewItemTitle(e.target.value)}
-              disabled={isLoading}
+        <div className="flex flex-col gap-4">
+          <form onSubmit={handleAddItem} className="grid gap-4 sm:grid-cols-4">
+            <div className="sm:col-span-2">
+              <Input
+                placeholder="Add a movie or show to watch..."
+                value={newItemTitle}
+                onChange={(e) => setNewItemTitle(e.target.value)}
+                disabled={isLoading}
+              />
+            </div>
+            <div>
+              <Select
+                value={newItemPriority}
+                onValueChange={(value: TaskPriority) =>
+                  setNewItemPriority(value)
+                }
+                disabled={isLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Hours"
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={newItemHours}
+                onChange={(e) => setNewItemHours(e.target.value)}
+                disabled={isLoading}
+              />
+              <Button type="submit" size="icon" disabled={isLoading}>
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </form>
+          <div className="flex items-center justify-end space-x-2 py-2">
+            <Switch
+              id="show-watched-items"
+              checked={showCompleted}
+              onCheckedChange={setShowCompleted}
             />
+            <Label htmlFor="show-watched-items">Show watched items</Label>
           </div>
-          <div>
-            <Select
-              value={newItemPriority}
-              onValueChange={(value: TaskPriority) => setNewItemPriority(value)}
-              disabled={isLoading}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Priority" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex gap-2">
-            <Input
-              placeholder="Hours"
-              type="number"
-              min="0.1"
-              step="0.1"
-              value={newItemHours}
-              onChange={(e) => setNewItemHours(e.target.value)}
-              disabled={isLoading}
-            />
-            <Button type="submit" size="icon" disabled={isLoading}>
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
-        </form>
+        </div>
       </CardHeader>
       <CardContent className="p-4">
-        {items.length === 0 ? (
+        {filteredItems.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">
-            No items yet. Add your first one above.
+            {items.length === 0
+              ? "No items yet. Add your first one above."
+              : "No items match your current filter."}
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -135,7 +158,7 @@ export function WatchList({ initialItems }: WatchListProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {items.map((item) => (
+                {filteredItems.map((item) => (
                   <TableRow
                     key={item.id}
                     className={cn(item.completed && "bg-muted")}
@@ -240,8 +263,8 @@ export function WatchList({ initialItems }: WatchListProps) {
         )}
       </CardContent>
       <CardFooter className="border-t p-4 text-sm text-muted-foreground">
-        {items.filter((item) => item.completed).length} of {items.length}{" "}
-        completed
+        Showing {filteredItems.length} of {items.length} items. (
+        {items.filter((item) => item.completed).length} watched)
       </CardFooter>
     </Card>
   );
