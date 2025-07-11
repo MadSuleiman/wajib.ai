@@ -49,7 +49,7 @@ export function WatchList({ initialItems }: WatchListProps) {
   const [newItemPriority, setNewItemPriority] =
     useState<TaskPriority>("medium");
   const [newItemHours, setNewItemHours] = useState<string>("");
-  const [showCompleted, setShowCompleted] = useState(true); // "completed" means "watched" here
+  const [showCompleted, setShowCompleted] = useState(false); // "completed" means "watched" here
 
   const {
     items,

@@ -27,11 +27,14 @@ export const priorityOrder: Record<TaskPriority, number> = {
 
 import type { TaskPriority } from "@/types";
 
-export const sortItemsByPriority = <T extends { priority: TaskPriority; created_at: string }>(
+export const sortItemsByPriority = <
+  T extends { priority: TaskPriority; created_at: string },
+>(
   items: T[],
 ): T[] => {
   return [...items].sort((a, b) => {
-    const priorityComparison = priorityOrder[a.priority] - priorityOrder[b.priority];
+    const priorityComparison =
+      priorityOrder[a.priority] - priorityOrder[b.priority];
     if (priorityComparison !== 0) {
       return priorityComparison;
     }

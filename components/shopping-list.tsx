@@ -41,7 +41,7 @@ export function ShoppingList({ initialItems }: ShoppingListProps) {
   const [newItemTitle, setNewItemTitle] = useState("");
   const [newItemPriority, setNewItemPriority] =
     useState<TaskPriority>("medium");
-  const [showCompleted, setShowCompleted] = useState(true);
+  const [showCompleted, setShowCompleted] = useState(false);
 
   const {
     items,
@@ -113,7 +113,9 @@ export function ShoppingList({ initialItems }: ShoppingListProps) {
               checked={showCompleted}
               onCheckedChange={setShowCompleted}
             />
-            <Label htmlFor="show-completed-shopping">Show completed items</Label>
+            <Label htmlFor="show-completed-shopping">
+              Show completed items
+            </Label>
           </div>
         </div>
       </CardHeader>

@@ -49,7 +49,7 @@ export function TaskList({ initialTasks }: TaskListProps) {
   const [newTaskPriority, setNewTaskPriority] =
     useState<TaskPriority>("medium");
   const [newTaskHours, setNewTaskHours] = useState<string>("");
-  const [showCompleted, setShowCompleted] = useState(true);
+  const [showCompleted, setShowCompleted] = useState(false);
 
   const {
     tasks,
