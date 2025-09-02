@@ -8,7 +8,7 @@ import {
 
 interface PageHeaderProps {
   title: string;
-  description: string;
+  description?: string;
   icon: "CheckSquare" | "ShoppingCart" | "Film" | "Settings";
 }
 
@@ -21,7 +21,9 @@ export function PageHeader({ title, description, icon }: PageHeaderProps) {
         <Icon className="h-6 w-6" />
         {title}
       </h1>
-      <p className="text-muted-foreground">{description}</p>
+      {description ? (
+        <p className="text-muted-foreground">{description}</p>
+      ) : null}
     </div>
   );
 }
