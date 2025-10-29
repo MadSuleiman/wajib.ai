@@ -1,32 +1,28 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   CheckCircle2,
   Circle,
+  Clock,
   Loader2,
   Plus,
   Trash2,
-  Clock,
 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardAction,
   CardContent,
+  CardDescription,
   CardFooter,
   CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -34,19 +30,92 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import type { TaskPriority } from "@/types";
-import { priorityIcons, priorityLabels } from "./list-utils";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+} from "@/components/ui/carousel";
+import {
+  DataTable,
+  type DataTableColumn,
+  type DataTableSortState,
+} from "@/components/ui/data-table";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  groupItems,
+  sortItems,
+  priorityIcons,
+  priorityLabels,
+  formatDateLabel,
+  type ItemGroupMode,
+  type SortKey,
+  type SortOptionValue,
+  sortConfigFromValue,
+} from "@/components/list-utils";
+import type { TaskPriority, WatchItem } from "@/types";
 import { useSupabase } from "@/components/supabase-provider";
 
-export function WatchList() {
-  const [newItemTitle, setNewItemTitle] = useState("");
-  const [newItemPriority, setNewItemPriority] =
-    useState<TaskPriority>("medium");
-  const [newItemHours, setNewItemHours] = useState<string>("");
-  const [showCompleted, setShowCompleted] = useState(false); // "completed" means "watched" here
+type StatusFilter = "active" | "completed" | "all";
 
+const groupingOptions: { label: string; value: ItemGroupMode }[] = [
+  { label: "Month", value: "month" },
+  { label: "Week", value: "week" },
+  { label: "Day", value: "date" },
+  { label: "Priority", value: "priority" },
+  { label: "No grouping", value: "none" },
+];
+
+const sortOptions: { label: string; value: SortOptionValue }[] = [
+  { label: "Priority (high → low)", value: "priority:desc" },
+  { label: "Priority (low → high)", value: "priority:asc" },
+  { label: "Newest first", value: "date:desc" },
+  { label: "Oldest first", value: "date:asc" },
+  { label: "Title A → Z", value: "title:asc" },
+  { label: "Title Z → A", value: "title:desc" },
+  { label: "Hours (high → low)", value: "hours:desc" },
+  { label: "Hours (low → high)", value: "hours:asc" },
+];
+
+const statusOptions: { label: string; value: StatusFilter }[] = [
+  { label: "To watch", value: "active" },
+  { label: "Watched", value: "completed" },
+  { label: "All", value: "all" },
+];
+
+const columnIdBySortKey: Record<SortKey, string | undefined> = {
+  priority: "priority",
+  date: "added",
+  title: "title",
+  hours: "hours",
+};
+
+const sortKeyByColumnId: Record<string, SortKey | undefined> = {
+  priority: "priority",
+  title: "title",
+  added: "date",
+  hours: "hours",
+};
+
+const defaultSortValue: SortOptionValue = "priority:desc";
+
+const formatAddedDescription = (createdAt: string) => {
+  const absolute = formatDateLabel(createdAt);
+  const relative = formatDistanceToNow(new Date(createdAt), {
+    addSuffix: true,
+  });
+  return `${absolute} · ${relative}`;
+};
+
+export function WatchList() {
+  const isMobile = useIsMobile();
   const {
     items,
     isLoading,
@@ -56,6 +125,23 @@ export function WatchList() {
     updateItemHours,
     deleteItem,
   } = useSupabase().watch;
+
+  const [newItemTitle, setNewItemTitle] = useState("");
+  const [newItemPriority, setNewItemPriority] =
+    useState<TaskPriority>("medium");
+  const [newItemHours, setNewItemHours] = useState<string>("");
+  const [groupMode, setGroupMode] = useState<ItemGroupMode>("month");
+  const [sortValue, setSortValue] = useState<SortOptionValue>(defaultSortValue);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const sortConfig = useMemo(() => sortConfigFromValue(sortValue), [sortValue]);
+
+  const tableSortState = useMemo<DataTableSortState | undefined>(() => {
+    const columnId = columnIdBySortKey[sortConfig.key];
+    if (!columnId) return undefined;
+    return { columnId, direction: sortConfig.direction };
+  }, [sortConfig]);
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,35 +154,243 @@ export function WatchList() {
   };
 
   const filteredItems = useMemo(() => {
-    if (showCompleted) {
-      return items;
+    switch (statusFilter) {
+      case "completed":
+        return items.filter((item) => item.completed);
+      case "all":
+        return items;
+      case "active":
+      default:
+        return items.filter((item) => !item.completed);
     }
-    return items.filter((item) => !item.completed);
-  }, [items, showCompleted]);
+  }, [items, statusFilter]);
 
-  return (
-    <Card>
-      <CardHeader className="p-4 pb-0">
-        <div className="flex flex-col gap-4">
-          <form onSubmit={handleAddItem} className="grid gap-4 sm:grid-cols-4">
-            <div className="sm:col-span-2">
-              <Input
-                placeholder="Add a movie or show to watch..."
-                value={newItemTitle}
-                onChange={(e) => setNewItemTitle(e.target.value)}
-                disabled={isLoading}
-              />
-            </div>
+  const sortedItems = useMemo(
+    () => sortItems(filteredItems, sortConfig),
+    [filteredItems, sortConfig],
+  );
+
+  const groupedItems = useMemo(
+    () => groupItems(sortedItems, groupMode),
+    [sortedItems, groupMode],
+  );
+
+  const displayGroups =
+    groupMode === "none" ? [{ label: "", items: sortedItems }] : groupedItems;
+
+  const watchedCount = useMemo(
+    () => items.filter((item) => item.completed).length,
+    [items],
+  );
+
+  const summaryText = `Showing ${sortedItems.length} of ${items.length} titles (${watchedCount} watched)`;
+
+  const emptyStateMessage =
+    items.length === 0
+      ? "No titles yet. Add your first one above."
+      : "No titles match your current filters.";
+
+  const handleTableSortChange = useCallback((state: DataTableSortState) => {
+    const sortKey = sortKeyByColumnId[state.columnId];
+    if (!sortKey) return;
+    setSortValue(`${sortKey}:${state.direction}` as SortOptionValue);
+  }, []);
+
+  const itemColumns = useMemo<DataTableColumn<WatchItem>[]>(() => {
+    return [
+      {
+        id: "status",
+        header: "Status",
+        cell: (item) => (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => toggleItemCompletion(item.id, item.completed)}
+          >
+            {item.completed ? (
+              <CheckCircle2 className="h-5 w-5 text-primary" />
+            ) : (
+              <Circle className="h-5 w-5 text-muted-foreground" />
+            )}
+            <span className="sr-only">
+              {item.completed ? "Mark as unwatched" : "Mark as watched"}
+            </span>
+          </Button>
+        ),
+        cellClassName: "w-[60px]",
+      },
+      {
+        id: "title",
+        header: "Title",
+        sortable: true,
+        cell: (item) => (
+          <p
+            className={cn(
+              "font-medium",
+              item.completed && "text-muted-foreground line-through",
+            )}
+          >
+            {item.title}
+          </p>
+        ),
+      },
+      {
+        id: "priority",
+        header: "Priority",
+        sortable: true,
+        cell: (item) => (
+          <Select
+            value={item.priority}
+            onValueChange={(value: TaskPriority) =>
+              updateItemPriority(item.id, value)
+            }
+          >
+            <SelectTrigger className="h-8 min-w-[140px]">
+              <SelectValue>
+                <div className="flex items-center gap-2">
+                  {priorityIcons[item.priority]}
+                  <span>{priorityLabels[item.priority]}</span>
+                </div>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="low">
+                <div className="flex items-center gap-2">
+                  {priorityIcons.low}
+                  <span>Low</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="medium">
+                <div className="flex items-center gap-2">
+                  {priorityIcons.medium}
+                  <span>Medium</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="high">
+                <div className="flex items-center gap-2">
+                  {priorityIcons.high}
+                  <span>High</span>
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        ),
+        cellClassName: "w-[180px]",
+      },
+      {
+        id: "hours",
+        header: "Hours",
+        sortable: true,
+        cell: (item) => (
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-muted-foreground" />
+            <Input
+              className="h-8 w-24"
+              type="number"
+              min="0.1"
+              step="0.1"
+              value={item.estimated_hours ?? ""}
+              onChange={(e) => updateItemHours(item.id, e.target.value)}
+            />
+          </div>
+        ),
+        cellClassName: "w-[160px]",
+      },
+      {
+        id: "added",
+        header: "Added",
+        sortable: true,
+        cell: (item) => (
+          <div className="text-xs text-muted-foreground">
+            <div>{formatDateLabel(item.created_at)}</div>
             <div>
+              {formatDistanceToNow(new Date(item.created_at), {
+                addSuffix: true,
+              })}
+            </div>
+          </div>
+        ),
+        cellClassName: "min-w-[160px]",
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: (item) => (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+            onClick={() => deleteItem(item.id)}
+          >
+            <Trash2 className="h-4 w-4" />
+            <span className="sr-only">Delete title</span>
+          </Button>
+        ),
+        cellClassName: "w-[60px] text-right",
+      },
+    ];
+  }, [deleteItem, toggleItemCompletion, updateItemHours, updateItemPriority]);
+
+  const renderWatchCard = (item: WatchItem) => (
+    <Card key={item.id} className="h-full">
+      <CardHeader className="px-5 pb-3">
+        <CardTitle
+          className={cn(
+            "text-base font-semibold",
+            item.completed && "text-muted-foreground line-through",
+          )}
+        >
+          {item.title}
+        </CardTitle>
+        <CardDescription className="text-xs text-muted-foreground">
+          {formatAddedDescription(item.created_at)}
+        </CardDescription>
+        <CardAction>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9"
+            onClick={() => toggleItemCompletion(item.id, item.completed)}
+          >
+            {item.completed ? (
+              <CheckCircle2 className="h-5 w-5 text-primary" />
+            ) : (
+              <Circle className="h-5 w-5 text-muted-foreground" />
+            )}
+            <span className="sr-only">
+              {item.completed ? "Mark as unwatched" : "Mark as watched"}
+            </span>
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="px-5 pt-0">
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              {priorityIcons[item.priority]}
+              {priorityLabels[item.priority]} priority
+            </span>
+            {item.estimated_hours ? (
+              <span className="inline-flex items-center gap-1">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                {item.estimated_hours} hrs
+              </span>
+            ) : null}
+          </div>
+          <div className="grid gap-3">
+            <div className="grid gap-1">
+              <Label className="text-xs font-medium text-muted-foreground">
+                Priority
+              </Label>
               <Select
-                value={newItemPriority}
+                value={item.priority}
                 onValueChange={(value: TaskPriority) =>
-                  setNewItemPriority(value)
+                  updateItemPriority(item.id, value)
                 }
-                disabled={isLoading}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Priority" />
+                <SelectTrigger className="h-9">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="low">Low</SelectItem>
@@ -105,162 +399,280 @@ export function WatchList() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Hours"
-                type="number"
-                min="0.1"
-                step="0.1"
-                value={newItemHours}
-                onChange={(e) => setNewItemHours(e.target.value)}
-                disabled={isLoading}
-              />
-              <Button type="submit" size="icon" disabled={isLoading}>
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Plus className="h-4 w-4" />
-                )}
-              </Button>
+            <div className="grid gap-1">
+              <Label className="text-xs font-medium text-muted-foreground">
+                Estimated hours
+              </Label>
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="h-9"
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={item.estimated_hours ?? ""}
+                  onChange={(e) => updateItemHours(item.id, e.target.value)}
+                />
+              </div>
             </div>
-          </form>
-          <div className="flex items-center justify-end space-x-2 py-2">
-            <Switch
-              id="show-watched-items"
-              checked={showCompleted}
-              onCheckedChange={setShowCompleted}
-            />
-            <Label htmlFor="show-watched-items">Show watched items</Label>
           </div>
         </div>
+      </CardContent>
+      <CardFooter className="px-5 pt-0">
+        <div className="flex w-full justify-end">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 text-muted-foreground hover:text-destructive"
+            onClick={() => deleteItem(item.id)}
+          >
+            <Trash2 className="h-4 w-4" />
+            <span className="sr-only">Delete title</span>
+          </Button>
+        </div>
+      </CardFooter>
+    </Card>
+  );
+
+  const formLayoutClasses = cn(
+    "grid gap-3",
+    !isMobile && "sm:grid-cols-4 sm:gap-4",
+  );
+
+  const submitButtonClasses = cn(
+    "justify-center",
+    isMobile ? "w-full" : "sm:w-auto",
+  );
+
+  const addItemForm = (
+    <form onSubmit={handleAddItem} className={formLayoutClasses}>
+      <div className={cn(!isMobile && "sm:col-span-2")}>
+        <Label htmlFor="new-watch-item" className="sr-only">
+          Title
+        </Label>
+        <Input
+          id="new-watch-item"
+          placeholder="Add a movie or show to watch..."
+          value={newItemTitle}
+          onChange={(e) => setNewItemTitle(e.target.value)}
+          disabled={isLoading}
+        />
+      </div>
+      <div>
+        <Select
+          value={newItemPriority}
+          onValueChange={(value: TaskPriority) => setNewItemPriority(value)}
+          disabled={isLoading}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Priority" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="low">Low</SelectItem>
+            <SelectItem value="medium">Medium</SelectItem>
+            <SelectItem value="high">High</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className={cn("flex gap-2", isMobile ? "flex-col" : "sm:flex-row")}>
+        <Input
+          placeholder="Hours"
+          type="number"
+          min="0.1"
+          step="0.1"
+          value={newItemHours}
+          onChange={(e) => setNewItemHours(e.target.value)}
+          disabled={isLoading}
+        />
+        <Button
+          type="submit"
+          disabled={isLoading}
+          className={submitButtonClasses}
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Adding...
+            </>
+          ) : (
+            <>
+              <Plus className="h-4 w-4" />
+            </>
+          )}
+        </Button>
+      </div>
+    </form>
+  );
+
+  const filtersSection = (
+    <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-1">
+        <Label htmlFor="watch-grouping">Group by</Label>
+        <Select
+          value={groupMode}
+          onValueChange={(value) => setGroupMode(value as ItemGroupMode)}
+          disabled={!sortedItems.length}
+        >
+          <SelectTrigger id="watch-grouping">
+            <SelectValue placeholder="Grouping" />
+          </SelectTrigger>
+          <SelectContent>
+            {groupingOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="grid gap-1">
+        <Label htmlFor="watch-sorting">Sort by</Label>
+        <Select
+          value={sortValue}
+          onValueChange={(value) => setSortValue(value as SortOptionValue)}
+          disabled={!sortedItems.length}
+        >
+          <SelectTrigger id="watch-sorting">
+            <SelectValue placeholder="Sorting" />
+          </SelectTrigger>
+          <SelectContent>
+            {sortOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="grid gap-1">
+        <Label htmlFor="watch-status">Status</Label>
+        <Select
+          value={statusFilter}
+          onValueChange={(value) => setStatusFilter(value as StatusFilter)}
+        >
+          <SelectTrigger id="watch-status">
+            <SelectValue placeholder="Filter" />
+          </SelectTrigger>
+          <SelectContent>
+            {statusOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <>
+        <section className="flex min-h-screen flex-col bg-background">
+          <header className="border-b bg-card px-4 py-6 shadow-sm">
+            <div className="space-y-4">
+              <div className="rounded-lg border bg-background p-4 shadow-sm">
+                <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
+                  Add Title
+                </h2>
+                {addItemForm}
+              </div>
+              <div className="flex w-full justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setFiltersOpen(true)}
+                >
+                  Filters
+                </Button>
+              </div>
+            </div>
+          </header>
+          <main className="flex-1 overflow-y-auto px-4 py-6">
+            {sortedItems.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                {emptyStateMessage}
+              </p>
+            ) : (
+              <div className="space-y-6">
+                {displayGroups.map((group, index) => (
+                  <div key={group.label || index} className="space-y-3">
+                    {group.label ? (
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {group.label}
+                      </p>
+                    ) : null}
+                    <Carousel className="w-full" opts={{ align: "start" }}>
+                      <CarouselContent className="-ml-3">
+                        {group.items.map((item) => (
+                          <CarouselItem
+                            key={item.id}
+                            className="basis-[90%] pl-3 sm:basis-[60%]"
+                          >
+                            {renderWatchCard(item)}
+                          </CarouselItem>
+                        ))}
+                      </CarouselContent>
+                    </Carousel>
+                  </div>
+                ))}
+              </div>
+            )}
+          </main>
+          <footer className="border-t bg-card px-4 py-3 text-sm text-muted-foreground">
+            {summaryText}
+          </footer>
+        </section>
+        <Drawer
+          open={filtersOpen}
+          onOpenChange={setFiltersOpen}
+          direction="bottom"
+        >
+          <DrawerContent className="max-h-[80vh]">
+            <DrawerHeader>
+              <DrawerTitle>Filters</DrawerTitle>
+            </DrawerHeader>
+            <div className="overflow-y-auto px-4 pb-4">{filtersSection}</div>
+            <div className="border-t px-4 pb-4 pt-3">
+              <DrawerClose asChild>
+                <Button className="w-full" variant="secondary">
+                  Close
+                </Button>
+              </DrawerClose>
+            </div>
+          </DrawerContent>
+        </Drawer>
+      </>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="p-6 pb-0">
+        <div className="flex flex-col gap-6">
+          {addItemForm}
+          {filtersSection}
+        </div>
       </CardHeader>
-      <CardContent className="p-4">
-        {filteredItems.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">
-            {items.length === 0
-              ? "No items yet. Add your first one above."
-              : "No items match your current filter."}
+      <CardContent className="p-6">
+        {sortedItems.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            {emptyStateMessage}
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]">Status</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead className="w-[120px]">Priority</TableHead>
-                  <TableHead className="w-[100px]">Hours</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredItems.map((item) => (
-                  <TableRow
-                    key={item.id}
-                    className={cn(item.completed && "bg-muted")}
-                  >
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() =>
-                          toggleItemCompletion(item.id, item.completed)
-                        }
-                      >
-                        {item.completed ? (
-                          <CheckCircle2 className="h-5 w-5 text-primary" />
-                        ) : (
-                          <Circle className="h-5 w-5 text-muted-foreground" />
-                        )}
-                        <span className="sr-only">
-                          {item.completed
-                            ? "Mark as unwatched"
-                            : "Mark as watched"}
-                        </span>
-                      </Button>
-                    </TableCell>
-                    <TableCell
-                      className={cn(
-                        "font-medium",
-                        item.completed && "text-muted-foreground line-through",
-                      )}
-                    >
-                      {item.title}
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={item.priority}
-                        onValueChange={(value: TaskPriority) =>
-                          updateItemPriority(item.id, value)
-                        }
-                      >
-                        <SelectTrigger className="h-8">
-                          <SelectValue>
-                            <div className="flex items-center gap-2">
-                              {priorityIcons[item.priority]}
-                              <span>{priorityLabels[item.priority]}</span>
-                            </div>
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="low">
-                            <div className="flex items-center gap-2">
-                              {priorityIcons.low}
-                              <span>Low</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="medium">
-                            <div className="flex items-center gap-2">
-                              {priorityIcons.medium}
-                              <span>Medium</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="high">
-                            <div className="flex items-center gap-2">
-                              {priorityIcons.high}
-                              <span>High</span>
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <Input
-                          className="h-8 w-16"
-                          type="number"
-                          min="0.1"
-                          step="0.1"
-                          value={item.estimated_hours || ""}
-                          onChange={(e) =>
-                            updateItemHours(item.id, e.target.value)
-                          }
-                        />
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                        onClick={() => deleteItem(item.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Delete item</span>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          <DataTable
+            columns={itemColumns}
+            data={sortedItems}
+            groups={groupMode === "none" ? undefined : groupedItems}
+            emptyState={emptyStateMessage}
+            sortState={tableSortState}
+            onSortChange={handleTableSortChange}
+          />
         )}
       </CardContent>
-      <CardFooter className="border-t p-4 text-sm text-muted-foreground">
-        Showing {filteredItems.length} of {items.length} items. (
-        {items.filter((item) => item.completed).length} watched)
+      <CardFooter className="border-t p-6 pt-4 text-sm text-muted-foreground">
+        {summaryText}
       </CardFooter>
     </Card>
   );
