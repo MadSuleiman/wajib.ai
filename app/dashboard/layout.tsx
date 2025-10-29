@@ -2,7 +2,7 @@ import type React from "react";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
-import { Navigation } from "@/components/navigation";
+import { DashboardShell } from "@/components/dashboard-shell";
 
 // Add this loading component
 function DashboardLoading() {
@@ -41,11 +41,8 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Navigation user={user} />
-      <main className="flex-1 p-4 pb-20 md:p-6 md:pb-6">
-        <Suspense fallback={<DashboardLoading />}>{children}</Suspense>
-      </main>
-    </div>
+    <DashboardShell user={user}>
+      <Suspense fallback={<DashboardLoading />}>{children}</Suspense>
+    </DashboardShell>
   );
 }

@@ -35,7 +35,9 @@ export default async function DashboardPage({
         initialTasks={tasks}
         initialShoppingItems={shoppingItems}
         initialWatchItems={watchItems}
-        initialView={(viewParam as "tasks" | "shopping" | "watch") || "tasks"}
+        initialView={
+          (viewParam as "tasks" | "shopping" | "watch" | "settings") || "tasks"
+        }
       />
     </Suspense>
   );

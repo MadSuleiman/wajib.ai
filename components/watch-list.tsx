@@ -36,15 +36,11 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import type { WatchItem, TaskPriority } from "@/types";
+import type { TaskPriority } from "@/types";
 import { priorityIcons, priorityLabels } from "./list-utils";
-import { useWatchItems } from "@/hooks/use-supabase";
+import { useSupabase } from "@/components/supabase-provider";
 
-interface WatchListProps {
-  initialItems: WatchItem[];
-}
-
-export function WatchList({ initialItems }: WatchListProps) {
+export function WatchList() {
   const [newItemTitle, setNewItemTitle] = useState("");
   const [newItemPriority, setNewItemPriority] =
     useState<TaskPriority>("medium");
@@ -59,7 +55,7 @@ export function WatchList({ initialItems }: WatchListProps) {
     updateItemPriority,
     updateItemHours,
     deleteItem,
-  } = useWatchItems(initialItems);
+  } = useSupabase().watch;
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();

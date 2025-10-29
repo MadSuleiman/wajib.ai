@@ -36,15 +36,11 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import type { Task, TaskPriority } from "@/types";
+import type { TaskPriority } from "@/types";
 import { priorityIcons, priorityLabels } from "./list-utils";
-import { useTasks } from "@/hooks/use-supabase";
+import { useSupabase } from "@/components/supabase-provider";
 
-interface TaskListProps {
-  initialTasks: Task[];
-}
-
-export function TaskList({ initialTasks }: TaskListProps) {
+export function TaskList() {
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskPriority, setNewTaskPriority] =
     useState<TaskPriority>("medium");
@@ -59,7 +55,7 @@ export function TaskList({ initialTasks }: TaskListProps) {
     updateTaskPriority,
     updateTaskHours,
     deleteTask,
-  } = useTasks(initialTasks);
+  } = useSupabase().tasks;
 
   const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();

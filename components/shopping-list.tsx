@@ -29,15 +29,11 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import type { ShoppingItem, TaskPriority } from "@/types";
+import type { TaskPriority } from "@/types";
 import { priorityIcons, priorityLabels } from "./list-utils";
-import { useShoppingItems } from "@/hooks/use-supabase";
+import { useSupabase } from "@/components/supabase-provider";
 
-interface ShoppingListProps {
-  initialItems: ShoppingItem[];
-}
-
-export function ShoppingList({ initialItems }: ShoppingListProps) {
+export function ShoppingList() {
   const [newItemTitle, setNewItemTitle] = useState("");
   const [newItemPriority, setNewItemPriority] =
     useState<TaskPriority>("medium");
@@ -50,7 +46,7 @@ export function ShoppingList({ initialItems }: ShoppingListProps) {
     toggleItemCompletion,
     updateItemPriority,
     deleteItem,
-  } = useShoppingItems(initialItems);
+  } = useSupabase().shopping;
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();

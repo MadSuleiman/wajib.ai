@@ -16,7 +16,7 @@ export function AppLogo({ size = "md", showText = true }: AppLogoProps) {
   const dimension = sizes[size];
 
   return (
-    <Link href="/dashboard/tasks" className="flex items-center gap-2">
+    <Link href="/dashboard" className="flex items-center gap-2">
       <Image
         src="/logos/logo.svg"
         alt="Wajib AI"

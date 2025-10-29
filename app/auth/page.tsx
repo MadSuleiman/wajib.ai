@@ -49,7 +49,7 @@ export default function AuthPage() {
       }
 
       toast.success("Signed in successfully");
-      router.push("/dashboard/tasks");
+      router.push("/dashboard");
       router.refresh();
     } catch (error: unknown) {
       toast.error("Authentication failed", {
