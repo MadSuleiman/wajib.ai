@@ -11,12 +11,7 @@ import {
 import { toast } from "sonner";
 import { createClientSupabaseClient } from "@/lib/supabase-client";
 import { sortItemsByPriority } from "@/components/list-utils";
-import type {
-  Task,
-  TaskPriority,
-  ShoppingItem,
-  WatchItem,
-} from "@/types";
+import type { Task, TaskPriority, ShoppingItem, WatchItem } from "@/types";
 
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
@@ -26,9 +21,19 @@ const getErrorMessage = (error: unknown): string => {
 interface TaskStore {
   tasks: Task[];
   isLoading: boolean;
-  addTask: (title: string, priority: TaskPriority, hours: string) => Promise<boolean>;
-  toggleTaskCompletion: (taskId: string, completed: boolean) => Promise<boolean>;
-  updateTaskPriority: (taskId: string, priority: TaskPriority) => Promise<boolean>;
+  addTask: (
+    title: string,
+    priority: TaskPriority,
+    hours: string,
+  ) => Promise<boolean>;
+  toggleTaskCompletion: (
+    taskId: string,
+    completed: boolean,
+  ) => Promise<boolean>;
+  updateTaskPriority: (
+    taskId: string,
+    priority: TaskPriority,
+  ) => Promise<boolean>;
   updateTaskHours: (taskId: string, hours: string) => Promise<boolean>;
   deleteTask: (taskId: string) => Promise<boolean>;
 }
@@ -37,17 +42,33 @@ interface ShoppingStore {
   items: ShoppingItem[];
   isLoading: boolean;
   addItem: (title: string, priority: TaskPriority) => Promise<boolean>;
-  toggleItemCompletion: (itemId: string, completed: boolean) => Promise<boolean>;
-  updateItemPriority: (itemId: string, priority: TaskPriority) => Promise<boolean>;
+  toggleItemCompletion: (
+    itemId: string,
+    completed: boolean,
+  ) => Promise<boolean>;
+  updateItemPriority: (
+    itemId: string,
+    priority: TaskPriority,
+  ) => Promise<boolean>;
   deleteItem: (itemId: string) => Promise<boolean>;
 }
 
 interface WatchStore {
   items: WatchItem[];
   isLoading: boolean;
-  addItem: (title: string, priority: TaskPriority, hours: string) => Promise<boolean>;
-  toggleItemCompletion: (itemId: string, completed: boolean) => Promise<boolean>;
-  updateItemPriority: (itemId: string, priority: TaskPriority) => Promise<boolean>;
+  addItem: (
+    title: string,
+    priority: TaskPriority,
+    hours: string,
+  ) => Promise<boolean>;
+  toggleItemCompletion: (
+    itemId: string,
+    completed: boolean,
+  ) => Promise<boolean>;
+  updateItemPriority: (
+    itemId: string,
+    priority: TaskPriority,
+  ) => Promise<boolean>;
   updateItemHours: (itemId: string, hours: string) => Promise<boolean>;
   deleteItem: (itemId: string) => Promise<boolean>;
 }
@@ -288,7 +309,9 @@ export function SupabaseProvider({
         if (data) {
           setShoppingItems((current) =>
             sortItemsByPriority([
-              ...current.filter((item) => item.id !== (data as ShoppingItem).id),
+              ...current.filter(
+                (item) => item.id !== (data as ShoppingItem).id,
+              ),
               data as ShoppingItem,
             ]),
           );
@@ -576,7 +599,9 @@ export function SupabaseProvider({
 
         if (error) throw error;
 
-        setWatchItems((current) => current.filter((item) => item.id !== itemId));
+        setWatchItems((current) =>
+          current.filter((item) => item.id !== itemId),
+        );
 
         toast.success("Item deleted", {
           description: "Your watch item has been deleted successfully.",

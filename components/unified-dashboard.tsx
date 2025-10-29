@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
-import { PageHeader } from "@/components/page-header";
 import { TaskList } from "@/components/task-list";
 import { ShoppingList } from "@/components/shopping-list";
 import { WatchList } from "@/components/watch-list";
@@ -74,8 +73,6 @@ export default function UnifiedDashboard({
       initialWatchItems={initialWatchItems}
     >
       <div className="w-full space-y-6">
-        <PageHeader title="Your Lists" icon="CheckSquare" />
-
         {isMobile ? (
           <div className="mt-2">
             <motion.div variants={container} initial="hidden" animate="show">

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, SettingsIcon } from "lucide-react";
 
 import { createClientSupabaseClient } from "@/lib/supabase-client";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { PageHeader } from "@/components/page-header";
 import { Separator } from "@/components/ui/separator";
 
 interface ErrorWithMessage {
@@ -82,11 +81,10 @@ export function SettingsPanel() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Settings"
-        description="Manage your account and application preferences"
-        icon="Settings"
-      />
+      <h3 className="flex items-center space-x-2 text-2xl font-bold gap-2">
+        <SettingsIcon />
+        Settings
+      </h3>
 
       <div className="grid gap-6">
         <Card>
