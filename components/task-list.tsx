@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Circle,
   Clock,
+  Filter,
   Loader2,
   Plus,
   Trash2,
@@ -48,6 +49,14 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   groupItems,
@@ -134,6 +143,7 @@ export function TaskList() {
   const [sortValue, setSortValue] = useState<SortOptionValue>(defaultSortValue);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const sortConfig = useMemo(() => sortConfigFromValue(sortValue), [sortValue]);
 
@@ -150,6 +160,7 @@ export function TaskList() {
       setNewTaskTitle("");
       setNewTaskPriority("medium");
       setNewTaskHours("");
+      setCreateOpen(false);
     }
   };
 
@@ -431,6 +442,7 @@ export function TaskList() {
   const formLayoutClasses = cn(
     "grid gap-3",
     !isMobile && "sm:grid-cols-4 sm:gap-4",
+    "w-full",
   );
 
   const submitButtonClasses = cn(
@@ -450,6 +462,7 @@ export function TaskList() {
           value={newTaskTitle}
           onChange={(e) => setNewTaskTitle(e.target.value)}
           disabled={isLoading}
+          className="w-full"
         />
       </div>
       <div>
@@ -461,7 +474,7 @@ export function TaskList() {
           onValueChange={(value: TaskPriority) => setNewTaskPriority(value)}
           disabled={isLoading}
         >
-          <SelectTrigger id="new-task-priority">
+          <SelectTrigger id="new-task-priority" className="w-full">
             <SelectValue placeholder="Priority" />
           </SelectTrigger>
           <SelectContent>
@@ -480,6 +493,7 @@ export function TaskList() {
           value={newTaskHours}
           onChange={(e) => setNewTaskHours(e.target.value)}
           disabled={isLoading}
+          className="w-full"
         />
         <Button
           type="submit"
@@ -487,14 +501,9 @@ export function TaskList() {
           className={submitButtonClasses}
         >
           {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Adding...
-            </>
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <>
-              <Plus className="h-4 w-4" />
-            </>
+            <Plus className="h-4 w-4" />
           )}
         </Button>
       </div>
@@ -502,15 +511,15 @@ export function TaskList() {
   );
 
   const filtersSection = (
-    <div className="grid gap-3 sm:grid-cols-3">
-      <div className="grid gap-1">
+    <div className="flex w-full flex-wrap items-end gap-4">
+      <div className="flex flex-col gap-1 w-full sm:w-auto sm:min-w-[220px]">
         <Label htmlFor="task-grouping">Group by</Label>
         <Select
           value={groupMode}
           onValueChange={(value) => setGroupMode(value as ItemGroupMode)}
           disabled={!sortedTasks.length}
         >
-          <SelectTrigger id="task-grouping">
+          <SelectTrigger id="task-grouping" className="w-full">
             <SelectValue placeholder="Grouping" />
           </SelectTrigger>
           <SelectContent>
@@ -522,14 +531,14 @@ export function TaskList() {
           </SelectContent>
         </Select>
       </div>
-      <div className="grid gap-1">
+      <div className="flex flex-col gap-1 w-full sm:w-auto sm:min-w-[220px]">
         <Label htmlFor="task-sorting">Sort by</Label>
         <Select
           value={sortValue}
           onValueChange={(value) => setSortValue(value as SortOptionValue)}
           disabled={!sortedTasks.length}
         >
-          <SelectTrigger id="task-sorting">
+          <SelectTrigger id="task-sorting" className="w-full">
             <SelectValue placeholder="Sorting" />
           </SelectTrigger>
           <SelectContent>
@@ -541,13 +550,13 @@ export function TaskList() {
           </SelectContent>
         </Select>
       </div>
-      <div className="grid gap-1">
+      <div className="flex flex-col gap-1 w-full sm:w-auto sm:min-w-[220px]">
         <Label htmlFor="task-status">Status</Label>
         <Select
           value={statusFilter}
           onValueChange={(value) => setStatusFilter(value as StatusFilter)}
         >
-          <SelectTrigger id="task-status">
+          <SelectTrigger id="task-status" className="w-full">
             <SelectValue placeholder="Filter" />
           </SelectTrigger>
           <SelectContent>
@@ -567,23 +576,22 @@ export function TaskList() {
       <>
         <section className="flex min-h-screen flex-col bg-background">
           <header className="border-b bg-card px-4 py-6 shadow-sm">
-            <div className="space-y-4">
-              <div className="rounded-lg border bg-background p-4 shadow-sm">
-                <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
-                  Create Task
-                </h2>
-                {addTaskForm}
-              </div>
-              <div className="flex w-full justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setFiltersOpen(true)}
-                >
-                  Filters
-                </Button>
-              </div>
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                size="icon"
+                onClick={() => setCreateOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setFiltersOpen(true)}
+              >
+                <Filter className="h-4 w-4" />
+              </Button>
             </div>
           </header>
           <main className="flex-1 overflow-y-auto px-4 py-6">
@@ -600,7 +608,10 @@ export function TaskList() {
                         {group.label}
                       </p>
                     ) : null}
-                    <Carousel className="w-full" opts={{ align: "start" }}>
+                    <Carousel
+                      className="w-full"
+                      opts={{ align: "start", dragFree: true }}
+                    >
                       <CarouselContent className="-ml-3">
                         {group.items.map((task) => (
                           <CarouselItem
@@ -640,6 +651,25 @@ export function TaskList() {
             </div>
           </DrawerContent>
         </Drawer>
+        <Drawer
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          direction="bottom"
+        >
+          <DrawerContent className="max-h-[80vh]">
+            <DrawerHeader>
+              <DrawerTitle>New Task</DrawerTitle>
+            </DrawerHeader>
+            <div className="overflow-y-auto px-4 pb-4">{addTaskForm}</div>
+            <div className="border-t px-4 pb-4 pt-3">
+              <DrawerClose asChild>
+                <Button className="w-full" variant="secondary">
+                  Close
+                </Button>
+              </DrawerClose>
+            </div>
+          </DrawerContent>
+        </Drawer>
       </>
     );
   }
@@ -648,7 +678,24 @@ export function TaskList() {
     <Card>
       <CardHeader className="p-6 pb-0">
         <div className="flex flex-col gap-6">
-          {addTaskForm}
+          <div className="flex justify-end">
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+              <DialogTrigger asChild>
+                <Button size="icon">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-xl sm:max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Create Task</DialogTitle>
+                  <DialogDescription>
+                    Provide task details to add it to your dashboard.
+                  </DialogDescription>
+                </DialogHeader>
+                {addTaskForm}
+              </DialogContent>
+            </Dialog>
+          </div>
           {filtersSection}
         </div>
       </CardHeader>

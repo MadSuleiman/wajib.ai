@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Circle,
   Clock,
+  Filter,
   Loader2,
   Plus,
   Trash2,
@@ -48,6 +49,14 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   groupItems,
@@ -134,6 +143,7 @@ export function WatchList() {
   const [sortValue, setSortValue] = useState<SortOptionValue>(defaultSortValue);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const sortConfig = useMemo(() => sortConfigFromValue(sortValue), [sortValue]);
 
@@ -150,6 +160,7 @@ export function WatchList() {
       setNewItemTitle("");
       setNewItemPriority("medium");
       setNewItemHours("");
+      setCreateOpen(false);
     }
   };
 
@@ -437,6 +448,7 @@ export function WatchList() {
   const formLayoutClasses = cn(
     "grid gap-3",
     !isMobile && "sm:grid-cols-4 sm:gap-4",
+    "w-full",
   );
 
   const submitButtonClasses = cn(
@@ -456,6 +468,7 @@ export function WatchList() {
           value={newItemTitle}
           onChange={(e) => setNewItemTitle(e.target.value)}
           disabled={isLoading}
+          className="w-full"
         />
       </div>
       <div>
@@ -464,7 +477,7 @@ export function WatchList() {
           onValueChange={(value: TaskPriority) => setNewItemPriority(value)}
           disabled={isLoading}
         >
-          <SelectTrigger>
+          <SelectTrigger className="w-full">
             <SelectValue placeholder="Priority" />
           </SelectTrigger>
           <SelectContent>
@@ -474,7 +487,13 @@ export function WatchList() {
           </SelectContent>
         </Select>
       </div>
-      <div className={cn("flex gap-2", isMobile ? "flex-col" : "sm:flex-row")}>
+      <div
+        className={cn(
+          "flex gap-2",
+          isMobile ? "flex-col" : "sm:flex-row",
+          "w-full",
+        )}
+      >
         <Input
           placeholder="Hours"
           type="number"
@@ -483,6 +502,7 @@ export function WatchList() {
           value={newItemHours}
           onChange={(e) => setNewItemHours(e.target.value)}
           disabled={isLoading}
+          className="w-full"
         />
         <Button
           type="submit"
@@ -490,14 +510,9 @@ export function WatchList() {
           className={submitButtonClasses}
         >
           {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Adding...
-            </>
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <>
-              <Plus className="h-4 w-4" />
-            </>
+            <Plus className="h-4 w-4" />
           )}
         </Button>
       </div>
@@ -505,15 +520,15 @@ export function WatchList() {
   );
 
   const filtersSection = (
-    <div className="grid gap-3 sm:grid-cols-3">
-      <div className="grid gap-1">
+    <div className="flex w-full flex-wrap items-end gap-4">
+      <div className="flex flex-col gap-1 w-full sm:w-auto sm:min-w-[220px]">
         <Label htmlFor="watch-grouping">Group by</Label>
         <Select
           value={groupMode}
           onValueChange={(value) => setGroupMode(value as ItemGroupMode)}
           disabled={!sortedItems.length}
         >
-          <SelectTrigger id="watch-grouping">
+          <SelectTrigger id="watch-grouping" className="w-full">
             <SelectValue placeholder="Grouping" />
           </SelectTrigger>
           <SelectContent>
@@ -525,14 +540,14 @@ export function WatchList() {
           </SelectContent>
         </Select>
       </div>
-      <div className="grid gap-1">
+      <div className="flex flex-col gap-1 w-full sm:w-auto sm:min-w-[220px]">
         <Label htmlFor="watch-sorting">Sort by</Label>
         <Select
           value={sortValue}
           onValueChange={(value) => setSortValue(value as SortOptionValue)}
           disabled={!sortedItems.length}
         >
-          <SelectTrigger id="watch-sorting">
+          <SelectTrigger id="watch-sorting" className="w-full">
             <SelectValue placeholder="Sorting" />
           </SelectTrigger>
           <SelectContent>
@@ -544,13 +559,13 @@ export function WatchList() {
           </SelectContent>
         </Select>
       </div>
-      <div className="grid gap-1">
+      <div className="flex flex-col gap-1 w-full sm:w-auto sm:min-w-[220px]">
         <Label htmlFor="watch-status">Status</Label>
         <Select
           value={statusFilter}
           onValueChange={(value) => setStatusFilter(value as StatusFilter)}
         >
-          <SelectTrigger id="watch-status">
+          <SelectTrigger id="watch-status" className="w-full">
             <SelectValue placeholder="Filter" />
           </SelectTrigger>
           <SelectContent>
@@ -570,23 +585,22 @@ export function WatchList() {
       <>
         <section className="flex min-h-screen flex-col bg-background">
           <header className="border-b bg-card px-4 py-6 shadow-sm">
-            <div className="space-y-4">
-              <div className="rounded-lg border bg-background p-4 shadow-sm">
-                <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
-                  Add Title
-                </h2>
-                {addItemForm}
-              </div>
-              <div className="flex w-full justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setFiltersOpen(true)}
-                >
-                  Filters
-                </Button>
-              </div>
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                size="icon"
+                onClick={() => setCreateOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setFiltersOpen(true)}
+              >
+                <Filter className="h-4 w-4" />
+              </Button>
             </div>
           </header>
           <main className="flex-1 overflow-y-auto px-4 py-6">
@@ -603,7 +617,10 @@ export function WatchList() {
                         {group.label}
                       </p>
                     ) : null}
-                    <Carousel className="w-full" opts={{ align: "start" }}>
+                    <Carousel
+                      className="w-full"
+                      opts={{ align: "start", dragFree: true }}
+                    >
                       <CarouselContent className="-ml-3">
                         {group.items.map((item) => (
                           <CarouselItem
@@ -643,6 +660,25 @@ export function WatchList() {
             </div>
           </DrawerContent>
         </Drawer>
+        <Drawer
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          direction="bottom"
+        >
+          <DrawerContent className="max-h-[80vh]">
+            <DrawerHeader>
+              <DrawerTitle>New Title</DrawerTitle>
+            </DrawerHeader>
+            <div className="overflow-y-auto px-4 pb-4">{addItemForm}</div>
+            <div className="border-t px-4 pb-4 pt-3">
+              <DrawerClose asChild>
+                <Button className="w-full" variant="secondary">
+                  Close
+                </Button>
+              </DrawerClose>
+            </div>
+          </DrawerContent>
+        </Drawer>
       </>
     );
   }
@@ -651,7 +687,24 @@ export function WatchList() {
     <Card>
       <CardHeader className="p-6 pb-0">
         <div className="flex flex-col gap-6">
-          {addItemForm}
+          <div className="flex justify-end">
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+              <DialogTrigger asChild>
+                <Button size="icon">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-xl sm:max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Add a Title</DialogTitle>
+                  <DialogDescription>
+                    Track what you plan to watch by adding it here.
+                  </DialogDescription>
+                </DialogHeader>
+                {addItemForm}
+              </DialogContent>
+            </Dialog>
+          </div>
           {filtersSection}
         </div>
       </CardHeader>
