@@ -318,24 +318,26 @@ export function ShoppingList() {
   }, [deleteItem, toggleItemCompletion, updateItemPriority]);
 
   const renderShoppingCard = (item: ShoppingItem) => (
-    <Card key={item.id} className="h-full">
-      <CardHeader className="px-5 pb-3">
-        <CardTitle
-          className={cn(
-            "text-base font-semibold",
-            item.completed && "text-muted-foreground line-through",
-          )}
-        >
-          {item.title}
-        </CardTitle>
-        <CardDescription className="text-xs text-muted-foreground">
-          {formatAddedDescription(item.created_at)}
-        </CardDescription>
-        <CardAction>
+    <Card key={item.id} className="flex h-full flex-col">
+      <CardHeader className="flex flex-row items-start gap-3 space-y-0 pb-2">
+        <div className="flex-1 space-y-1">
+          <CardTitle
+            className={cn(
+              "text-base font-semibold",
+              item.completed && "text-muted-foreground line-through",
+            )}
+          >
+            {item.title}
+          </CardTitle>
+          <CardDescription className="text-xs text-muted-foreground">
+            {formatAddedDescription(item.created_at)}
+          </CardDescription>
+        </div>
+        <CardAction className="mt-0">
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9"
+            className="h-8 w-8"
             onClick={() => toggleItemCompletion(item.id, item.completed)}
           >
             {item.completed ? (
@@ -349,51 +351,40 @@ export function ShoppingList() {
           </Button>
         </CardAction>
       </CardHeader>
-      <CardContent className="px-5 pt-0">
-        <div className="space-y-4">
-          <div className="text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              {priorityIcons[item.priority]}
-              {priorityLabels[item.priority]} priority
-            </span>
-          </div>
-          <div className="grid gap-3">
-            <div className="grid gap-1">
-              <Label className="text-xs font-medium text-muted-foreground">
-                Priority
-              </Label>
-              <Select
-                value={item.priority}
-                onValueChange={(value: TaskPriority) =>
-                  updateItemPriority(item.id, value)
-                }
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+      <CardContent className="flex flex-1 flex-col gap-3 p-4 pt-0">
+        <div className="text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1">
+            {priorityIcons[item.priority]}
+            {priorityLabels[item.priority]} priority
+          </span>
         </div>
-      </CardContent>
-      <CardFooter className="px-5 pt-0">
-        <div className="flex w-full justify-end">
+        <div className="flex flex-wrap items-center gap-2">
+          <Select
+            value={item.priority}
+            onValueChange={(value: TaskPriority) =>
+              updateItemPriority(item.id, value)
+            }
+          >
+            <SelectTrigger className="h-8 min-w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="low">Low</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+            </SelectContent>
+          </Select>
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 text-muted-foreground hover:text-destructive"
+            className="h-8 w-8 text-muted-foreground hover:text-destructive"
             onClick={() => deleteItem(item.id)}
           >
             <Trash2 className="h-4 w-4" />
             <span className="sr-only">Delete item</span>
           </Button>
         </div>
-      </CardFooter>
+      </CardContent>
     </Card>
   );
 

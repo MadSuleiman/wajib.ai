@@ -4,7 +4,6 @@ import React, { useCallback, useMemo, useState } from "react";
 import {
   CheckCircle2,
   Circle,
-  Clock,
   Filter,
   Loader2,
   Plus,
@@ -71,6 +70,7 @@ import {
 } from "@/components/list-utils";
 import type { Task, TaskPriority } from "@/types";
 import { useSupabase } from "@/components/supabase-provider";
+import { EditableHoursField } from "@/components/editable-hours-field";
 
 type StatusFilter = "active" | "completed" | "all";
 
@@ -294,17 +294,14 @@ export function TaskList() {
         header: "Hours",
         sortable: true,
         cell: (task) => (
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            <Input
-              className="h-8 w-24"
-              type="number"
-              min="0.1"
-              step="0.1"
-              value={task.estimated_hours ?? ""}
-              onChange={(e) => updateTaskHours(task.id, e.target.value)}
-            />
-          </div>
+          <EditableHoursField
+            itemId={task.id}
+            initialValue={task.estimated_hours ?? null}
+            onSave={updateTaskHours}
+            className="justify-start"
+            inputClassName="h-8 w-20"
+            srLabel="Save estimated hours"
+          />
         ),
         cellClassName: "w-[160px]",
       },
@@ -344,24 +341,26 @@ export function TaskList() {
   }, [deleteTask, toggleTaskCompletion, updateTaskHours, updateTaskPriority]);
 
   const renderTaskMobileCard = (task: Task) => (
-    <Card key={task.id} className="h-full">
-      <CardHeader className="px-5 pb-3">
-        <CardTitle
-          className={cn(
-            "text-base font-semibold",
-            task.completed && "text-muted-foreground line-through",
-          )}
-        >
-          {task.title}
-        </CardTitle>
-        <CardDescription className="text-xs text-muted-foreground">
-          {formatAddedDescription(task.created_at)}
-        </CardDescription>
-        <CardAction>
+    <Card key={task.id} className="flex h-full flex-col">
+      <CardHeader className="flex flex-row items-start gap-3 space-y-0 pb-2">
+        <div className="flex-1 space-y-1">
+          <CardTitle
+            className={cn(
+              "text-base font-semibold",
+              task.completed && "text-muted-foreground line-through",
+            )}
+          >
+            {task.title}
+          </CardTitle>
+          <CardDescription className="text-xs text-muted-foreground">
+            {formatAddedDescription(task.created_at)}
+          </CardDescription>
+        </div>
+        <CardAction className="mt-0">
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9"
+            className="h-8 w-8"
             onClick={() => toggleTaskCompletion(task.id, task.completed)}
           >
             {task.completed ? (
@@ -375,67 +374,47 @@ export function TaskList() {
           </Button>
         </CardAction>
       </CardHeader>
-      <CardContent className="px-5 pt-0">
-        <div className="space-y-4">
-          <div className="text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              {priorityIcons[task.priority]}
-              {priorityLabels[task.priority]} priority
-            </span>
-          </div>
-          <div className="grid gap-3">
-            <div className="grid gap-1">
-              <Label className="text-xs font-medium text-muted-foreground">
-                Priority
-              </Label>
-              <Select
-                value={task.priority}
-                onValueChange={(value: TaskPriority) =>
-                  updateTaskPriority(task.id, value)
-                }
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-1">
-              <Label className="text-xs font-medium text-muted-foreground">
-                Estimated hours
-              </Label>
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <Input
-                  className="h-9"
-                  type="number"
-                  min="0.1"
-                  step="0.1"
-                  value={task.estimated_hours ?? ""}
-                  onChange={(e) => updateTaskHours(task.id, e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
+      <CardContent className="flex flex-1 flex-col gap-3 p-4 pt-0">
+        <div className="text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1">
+            {priorityIcons[task.priority]}
+            {priorityLabels[task.priority]} priority
+          </span>
         </div>
-      </CardContent>
-      <CardFooter className="px-5 pt-0">
-        <div className="flex w-full justify-end">
+        <div className="flex flex-wrap items-center gap-2">
+          <Select
+            value={task.priority}
+            onValueChange={(value: TaskPriority) =>
+              updateTaskPriority(task.id, value)
+            }
+          >
+            <SelectTrigger className="h-8 min-w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="low">Low</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+            </SelectContent>
+          </Select>
+          <EditableHoursField
+            itemId={task.id}
+            initialValue={task.estimated_hours ?? null}
+            onSave={updateTaskHours}
+            inputClassName="h-8 w-20 sm:w-24"
+            srLabel="Save estimated hours"
+          />
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 text-muted-foreground hover:text-destructive"
+            className="h-8 w-8 text-muted-foreground hover:text-destructive"
             onClick={() => deleteTask(task.id)}
           >
             <Trash2 className="h-4 w-4" />
             <span className="sr-only">Delete task</span>
           </Button>
         </div>
-      </CardFooter>
+      </CardContent>
     </Card>
   );
 

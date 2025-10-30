@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic"; // Ensure this route is always dynamic
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") || "/dashboard";
+  const next = searchParams.get("next") || "/";
 
   if (code) {
     const supabase = await createServerSupabaseClient();

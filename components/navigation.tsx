@@ -37,7 +37,7 @@ export function Navigation({}: NavigationProps) {
       setView(nextView);
 
       if (typeof window === "undefined") return;
-      if (window.location.pathname !== "/dashboard") return;
+      if (window.location.pathname !== "/") return;
 
       if (isMobile) {
         window.scrollTo({ top: 0, behavior: "smooth" });
