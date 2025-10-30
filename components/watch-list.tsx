@@ -584,7 +584,7 @@ export function WatchList() {
     return (
       <>
         <section className="flex min-h-screen flex-col bg-background">
-          <header className="border-b px-4 pb-6">
+          <header className="px-4 py-3">
             <div className="flex items-center justify-between">
               <Button
                 type="button"
