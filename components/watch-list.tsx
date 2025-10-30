@@ -584,15 +584,8 @@ export function WatchList() {
     return (
       <>
         <section className="flex min-h-screen flex-col bg-background">
-          <header className="border-b bg-card px-4 py-6 shadow-sm">
-            <div className="flex items-center justify-end gap-2">
-              <Button
-                type="button"
-                size="icon"
-                onClick={() => setCreateOpen(true)}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
+          <header className="border-b px-4 py-6">
+            <div className="flex items-center justify-between">
               <Button
                 type="button"
                 variant="outline"
@@ -600,6 +593,13 @@ export function WatchList() {
                 onClick={() => setFiltersOpen(true)}
               >
                 <Filter className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                onClick={() => setCreateOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
               </Button>
             </div>
           </header>
