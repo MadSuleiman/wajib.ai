@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback } from "react";
-import Image from "next/image";
 import type { User } from "@supabase/supabase-js";
 import { CheckSquare, Film, Settings, ShoppingCart } from "lucide-react";
 
