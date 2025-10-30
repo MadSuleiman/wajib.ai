@@ -19,19 +19,19 @@ export function AppLogo({ size = "md", showText = true }: AppLogoProps) {
     <Link href="/dashboard" className="flex items-center gap-2">
       <Image
         src="/logos/logo.svg"
-        alt="Wajib AI"
+        alt="wajib"
         width={dimension}
         height={dimension}
         className="dark:hidden"
       />
       <Image
         src="/logos/logo-white.svg"
-        alt="Wajib AI"
+        alt="wajib"
         width={dimension}
         height={dimension}
         className="hidden dark:block"
       />
-      {showText && <span className="font-semibold">Wajib AI</span>}
+      {showText && <span className="font-semibold">wajib</span>}
     </Link>
   );
 }

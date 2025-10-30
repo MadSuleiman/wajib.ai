@@ -7,10 +7,10 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ZoomPrevention } from "@/components/anti-zoom";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"], variable: '--font-arabicStyle' });
 
 export const metadata: Metadata = {
-  title: "Wajib AI",
+  title: "wajib",
   description: "An app for assorting your tasks",
   icons: {
     icon: [

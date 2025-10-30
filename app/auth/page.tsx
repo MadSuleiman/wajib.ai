@@ -99,14 +99,14 @@ export default function AuthPage() {
           <div className="mb-4 flex justify-center">
             <Image
               src="/logos/logo.svg"
-              alt="Wajib AI"
+              alt="wajib"
               width={60}
               height={60}
               className="dark:hidden"
             />
             <Image
               src="/logos/logo-white.svg"
-              alt="Wajib AI"
+              alt="wajib"
               width={60}
               height={60}
               className="hidden dark:block"

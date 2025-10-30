@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Wajib AI",
+    name: "wajib",
     short_name: "Wajib",
     description: "An app to help you with your daily tasks or purchasing",
     start_url: "/",

@@ -68,21 +68,7 @@ export function Navigation({}: NavigationProps) {
             onClick={() => handleSelectView("tasks")}
             className="flex items-center gap-2 font-semibold"
           >
-            <Image
-              src="/logos/logo.svg"
-              alt="Wajib AI"
-              width={24}
-              height={24}
-              className="dark:hidden"
-            />
-            <Image
-              src="/logos/logo-white.svg"
-              alt="Wajib AI"
-              width={24}
-              height={24}
-              className="hidden dark:block"
-            />
-            <span className="hidden sm:inline">Wajib AI</span>
+            <span className="inline">wajib </span>
             <span className="sr-only">Go to tasks</span>
           </button>
           <button

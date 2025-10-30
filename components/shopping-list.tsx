@@ -524,7 +524,7 @@ export function ShoppingList() {
     return (
       <>
         <section className="flex min-h-screen flex-col bg-background">
-          <header className="border-b px-4 py-6">
+          <header className="border-b px-4 pb-6">
             <div className="flex items-center justify-between">
               <Button
                 type="button"
@@ -577,7 +577,7 @@ export function ShoppingList() {
               </div>
             )}
           </main>
-          <footer className="border-t bg-card px-4 py-3 text-sm text-muted-foreground">
+          <footer className="border-t px-4 py-3 text-sm text-muted-foreground">
             {summaryText}
           </footer>
         </section>
