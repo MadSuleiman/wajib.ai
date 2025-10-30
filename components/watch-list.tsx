@@ -343,7 +343,7 @@ export function WatchList() {
 
   const renderWatchCard = (item: WatchItem) => (
     <Card key={item.id} className="flex h-full flex-col">
-      <CardHeader className="flex flex-row items-start gap-3 space-y-0 p-4 pb-2">
+      <CardHeader className="flex flex-row items-start gap-3 space-y-0 pb-2">
         <div className="flex-1 space-y-1">
           <CardTitle
             className={cn(
@@ -563,7 +563,7 @@ export function WatchList() {
   if (isMobile) {
     return (
       <>
-        <section className="flex min-h-screen flex-col bg-background">
+        <section className="flex min-h-screen flex-col">
           <header className="px-4 py-3">
             <div className="flex items-center justify-between">
               <Button

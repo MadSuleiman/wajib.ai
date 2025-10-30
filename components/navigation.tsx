@@ -60,7 +60,7 @@ export function Navigation({}: NavigationProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-10 border-b bg-background">
+      <header className="sticky top-0 z-10 border-b bg-transparent backdrop-blur-6xl">
         <div className="flex h-14 items-center justify-between px-4 md:px-6">
           <button
             type="button"
@@ -86,7 +86,7 @@ export function Navigation({}: NavigationProps) {
       </header>
 
       {isMobile && (
-        <nav className="fixed bottom-0 left-0 right-0 z-10 border-t bg-background">
+        <nav className="fixed bottom-0 left-0 right-0 z-10 border-t bg-transparent backdrop-blur-6xl">
           <div className="grid h-16 grid-cols-3">
             {viewRoutes.map(({ view: routeView, label, icon: Icon }) => (
               <button

@@ -50,11 +50,11 @@ export default async function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <Suspense
-            fallback={<div className="min-h-screen bg-background"></div>}
-          >
-            {children}
-          </Suspense>
+          <div className="ambient-surface">
+            <Suspense fallback={<div className="min-h-screen"></div>}>
+              {children}
+            </Suspense>
+          </div>
           <Toaster position="top-right" />
         </ThemeProvider>
       </body>
