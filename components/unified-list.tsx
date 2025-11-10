@@ -956,7 +956,7 @@ export function UnifiedList() {
                 return (
                   <div
                     key={item.id}
-                    className="rounded-2xl border bg-card/60 p-4 shadow-sm backdrop-blur"
+                    className="rounded-2xl border bg-card/50 p-4 shadow-sm backdrop-blur"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
