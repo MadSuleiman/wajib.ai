@@ -764,7 +764,7 @@ export function UnifiedList() {
           </CardContent>
         </Card>
 
-        <Card className="border bg-card/50 backdrop-blur-3xl w-full">
+        <Card className="border bg-card/50 backdrop-blur w-full">
           <CardHeader>
             <CardTitle>Filters &amp; grouping</CardTitle>
             <CardDescription>

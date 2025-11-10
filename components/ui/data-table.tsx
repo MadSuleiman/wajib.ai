@@ -119,7 +119,7 @@ export function DataTable<T>({
 
   if (!data.length) {
     return (
-      <div className="rounded-lg border bg-card/30 backdrop-blur-3xl">
+      <div className="rounded-lg border bg-card/50 backdrop-blur">
         <div className="p-6 text-center text-sm text-muted-foreground">
           {emptyState ?? "No data available."}
         </div>
@@ -128,7 +128,7 @@ export function DataTable<T>({
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border bg-card/30 backdrop-blur-3xl">
+    <div className="overflow-hidden rounded-lg border bg-card/50 backdrop-blur">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
