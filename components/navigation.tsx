@@ -1,113 +1,49 @@
 "use client";
 
 import { useCallback } from "react";
-import type { User } from "@supabase/supabase-js";
-import { CheckSquare, Film, Settings, ShoppingCart } from "lucide-react";
+import { Settings } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/hooks/use-mobile";
-import {
-  type DashboardListView,
-  useDashboardView,
-} from "@/hooks/use-dashboard-view";
+import { useDashboardView } from "@/hooks/use-dashboard-view";
 
-interface NavigationProps {
-  user: User;
-}
-
-export function Navigation({}: NavigationProps) {
-  const isMobile = useIsMobile();
-  const { view, lastListView, setView } = useDashboardView();
-
-  const currentListView =
-    view === "settings" ? lastListView : (view as DashboardListView);
-
-  const viewRoutes: Array<{
-    view: DashboardListView;
-    label: string;
-    icon: typeof CheckSquare;
-  }> = [
-    { view: "tasks", label: "Tasks", icon: CheckSquare },
-    { view: "shopping", label: "Shopping", icon: ShoppingCart },
-    { view: "watch", label: "Watch List", icon: Film },
-  ];
-
-  const handleSelectView = useCallback(
-    (nextView: DashboardListView) => {
-      setView(nextView);
-
-      if (typeof window === "undefined") return;
-      if (window.location.pathname !== "/") return;
-
-      if (isMobile) {
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        return;
-      }
-
-      requestAnimationFrame(() => {
-        const section = document.getElementById(nextView);
-        if (section) {
-          section.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      });
-    },
-    [setView, isMobile],
-  );
+export function Navigation() {
+  const { view, setView } = useDashboardView();
 
   const openSettings = useCallback(() => {
     setView("settings");
   }, [setView]);
 
-  return (
-    <>
-      <header className="sticky top-0 z-10 border-b bg-transparent backdrop-blur-6xl">
-        <div className="flex h-14 items-center justify-between px-4 md:px-6">
-          <button
-            type="button"
-            onClick={() => handleSelectView("tasks")}
-            className="flex items-center gap-2 font-semibold"
-          >
-            <span className="inline">wajib </span>
-            <span className="sr-only">Go to tasks</span>
-          </button>
-          <button
-            type="button"
-            onClick={openSettings}
-            className={cn(
-              "flex items-center justify-center rounded-full p-2 text-muted-foreground transition-colors hover:text-primary",
-              view === "settings" && "text-primary",
-            )}
-            aria-pressed={view === "settings"}
-          >
-            <Settings className="h-5 w-5" />
-            <span className="sr-only">Open settings</span>
-          </button>
-        </div>
-      </header>
+  const goHome = useCallback(() => {
+    setView("list");
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [setView]);
 
-      {isMobile && (
-        <nav className="fixed bottom-0 left-0 right-0 z-10 border-t bg-transparent backdrop-blur-6xl">
-          <div className="grid h-16 grid-cols-3">
-            {viewRoutes.map(({ view: routeView, label, icon: Icon }) => (
-              <button
-                key={routeView}
-                type="button"
-                onClick={() => handleSelectView(routeView)}
-                className={cn(
-                  "flex flex-col items-center justify-center gap-1 text-xs font-medium transition-colors",
-                  routeView === currentListView
-                    ? "text-primary"
-                    : "text-muted-foreground",
-                )}
-                aria-pressed={routeView === currentListView}
-              >
-                <Icon className="h-5 w-5" />
-                <span>{label}</span>
-              </button>
-            ))}
-          </div>
-        </nav>
-      )}
-    </>
+  return (
+    <header className="sticky top-0 z-10 border-b bg-transparent backdrop-blur-6xl">
+      <div className="flex h-14 items-center justify-between px-4 md:px-6">
+        <button
+          type="button"
+          onClick={goHome}
+          className="flex items-center gap-2 font-semibold"
+        >
+          <span className="inline">wajib</span>
+          <span className="sr-only">Go to dashboard</span>
+        </button>
+        <button
+          type="button"
+          onClick={openSettings}
+          className={cn(
+            "flex items-center justify-center rounded-full p-2 text-muted-foreground transition-colors hover:text-primary",
+            view === "settings" && "text-primary",
+          )}
+          aria-pressed={view === "settings"}
+        >
+          <Settings className="h-5 w-5" />
+          <span className="sr-only">Open settings</span>
+        </button>
+      </div>
+    </header>
   );
 }

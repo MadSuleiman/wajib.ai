@@ -1,8 +1,8 @@
 export type TaskPriority = "low" | "medium" | "high";
 
-export type SupabaseTableName = "tasks" | "shopping_items" | "watch_items";
+export type SupabaseTableName = "list_items" | "categories";
 
-export interface TaskRow {
+export interface ListItemRow {
   id: string;
   created_at: string;
   title: string;
@@ -10,9 +10,10 @@ export interface TaskRow {
   priority: TaskPriority;
   estimated_hours: number | null;
   user_id: string;
+  category: string;
 }
 
-export interface TaskInsert {
+export interface ListItemInsert {
   id?: string;
   created_at?: string;
   title: string;
@@ -20,48 +21,23 @@ export interface TaskInsert {
   priority?: TaskPriority;
   estimated_hours?: number | null;
   user_id?: string;
+  category?: string;
 }
 
-export type TaskUpdate = Partial<TaskRow>;
+export type ListItemUpdate = Partial<ListItemRow>;
 
-export interface ShoppingItemRow {
-  id: string;
-  created_at: string;
-  title: string;
-  completed: boolean;
-  priority: TaskPriority;
-  user_id: string;
+export interface CategoryRow {
+  slug: string;
+  label: string;
+  description: string | null;
+  color: string | null;
 }
 
-export interface ShoppingItemInsert {
-  id?: string;
-  created_at?: string;
-  title?: string;
-  completed?: boolean;
-  priority?: TaskPriority;
-  user_id?: string;
+export interface CategoryInsert {
+  slug: string;
+  label: string;
+  description?: string | null;
+  color?: string | null;
 }
 
-export type ShoppingItemUpdate = Partial<ShoppingItemRow>;
-
-export interface WatchItemRow {
-  id: string;
-  created_at: string;
-  title: string;
-  completed: boolean;
-  priority: TaskPriority;
-  estimated_hours: number | null;
-  user_id: string;
-}
-
-export interface WatchItemInsert {
-  id?: string;
-  created_at?: string;
-  title?: string;
-  completed?: boolean;
-  priority?: TaskPriority;
-  estimated_hours?: number | null;
-  user_id?: string;
-}
-
-export type WatchItemUpdate = Partial<WatchItemRow>;
+export type CategoryUpdate = Partial<CategoryRow>;

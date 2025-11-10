@@ -2,14 +2,13 @@
 
 import { useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
-import { TaskList } from "@/components/task-list";
-import { ShoppingList } from "@/components/shopping-list";
-import { WatchList } from "@/components/watch-list";
+
+import { SupabaseProvider } from "@/components/supabase-provider";
 import { SettingsPanel } from "@/components/settings-panel";
-import type { Task, ShoppingItem, WatchItem } from "@/types";
+import { UnifiedList } from "@/components/unified-list";
+import type { Category, ListItem } from "@/types";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
-  type DashboardListView,
   useDashboardView,
   type DashboardView,
 } from "@/hooks/use-dashboard-view";
@@ -25,23 +24,19 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { SupabaseProvider } from "@/components/supabase-provider";
 
 export default function UnifiedDashboard({
-  initialTasks,
-  initialShoppingItems,
-  initialWatchItems,
+  initialItems,
+  initialCategories,
   initialView,
 }: {
-  initialTasks: Task[];
-  initialShoppingItems: ShoppingItem[];
-  initialWatchItems: WatchItem[];
+  initialItems: ListItem[];
+  initialCategories: Category[];
   initialView: DashboardView;
 }) {
   const isMobile = useIsMobile();
-  const { view, lastListView, setView } = useDashboardView();
+  const { view, setView } = useDashboardView();
   const isSettingsOpen = view === "settings";
-  const listView = isSettingsOpen ? lastListView : (view as DashboardListView);
 
   useEffect(() => {
     setView(initialView);
@@ -62,59 +57,24 @@ export default function UnifiedDashboard({
 
   const closeSettings = useCallback(() => {
     if (isSettingsOpen) {
-      setView(lastListView);
+      setView("list");
     }
-  }, [isSettingsOpen, lastListView, setView]);
+  }, [isSettingsOpen, setView]);
 
   return (
     <SupabaseProvider
-      initialTasks={initialTasks}
-      initialShoppingItems={initialShoppingItems}
-      initialWatchItems={initialWatchItems}
+      initialItems={initialItems}
+      initialCategories={initialCategories}
     >
-      <div className="w-full space-y-6">
-        {isMobile ? (
-          <div className="mt-2">
-            <motion.div variants={container} initial="hidden" animate="show">
-              {listView === "tasks" && <TaskList />}
-              {listView === "shopping" && <ShoppingList />}
-              {listView === "watch" && <WatchList />}
-            </motion.div>
-          </div>
-        ) : (
-          <div className="grid w-full min-w-0 grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 p-6">
-            <motion.section
-              id="tasks"
-              className="min-w-0 scroll-mt-24"
-              variants={container}
-              initial="hidden"
-              animate="show"
-            >
-              <h2 className="mb-2 text-lg font-semibold">Tasks</h2>
-              <TaskList />
-            </motion.section>
-            <motion.section
-              id="shopping"
-              className="min-w-0 scroll-mt-24"
-              variants={container}
-              initial="hidden"
-              animate="show"
-            >
-              <h2 className="mb-2 text-lg font-semibold">Shopping</h2>
-              <ShoppingList />
-            </motion.section>
-            <motion.section
-              id="watch"
-              className="min-w-0 scroll-mt-24"
-              variants={container}
-              initial="hidden"
-              animate="show"
-            >
-              <h2 className="mb-2 text-lg font-semibold">Watch</h2>
-              <WatchList />
-            </motion.section>
-          </div>
-        )}
+      <div className="w-full px-4 py-4 md:px-8">
+        <motion.section
+          className="mx-auto max-w-6xl"
+          variants={container}
+          initial="hidden"
+          animate="show"
+        >
+          <UnifiedList />
+        </motion.section>
       </div>
 
       <Dialog

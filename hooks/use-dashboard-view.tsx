@@ -9,12 +9,10 @@ import {
   type ReactNode,
 } from "react";
 
-export type DashboardView = "tasks" | "shopping" | "watch" | "settings";
-export type DashboardListView = Exclude<DashboardView, "settings">;
+export type DashboardView = "list" | "settings";
 
 interface DashboardViewContextValue {
   view: DashboardView;
-  lastListView: DashboardListView;
   setView: (view: DashboardView) => void;
 }
 
@@ -23,32 +21,24 @@ const DashboardViewContext = createContext<DashboardViewContextValue | null>(
 );
 
 export function DashboardViewProvider({
-  initialView = "tasks",
+  initialView = "list",
   children,
 }: {
   initialView?: DashboardView;
   children: ReactNode;
 }) {
   const [view, setViewState] = useState<DashboardView>(initialView);
-  const [lastListView, setLastListView] = useState<DashboardListView>(
-    initialView === "settings" ? "tasks" : (initialView as DashboardListView),
-  );
 
   const setView = useCallback((nextView: DashboardView) => {
     setViewState(nextView);
-
-    if (nextView !== "settings") {
-      setLastListView(nextView as DashboardListView);
-    }
   }, []);
 
   const value = useMemo(
     () => ({
       view,
-      lastListView,
       setView,
     }),
-    [view, lastListView, setView],
+    [view, setView],
   );
 
   return (

@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
-import type { Task, ShoppingItem, WatchItem } from "@/types";
+import type { Category, ListItem } from "@/types";
 import { sortItemsByPriority } from "@/components/list-utils";
 import UnifiedDashboard from "@/components/unified-dashboard";
+import type { DashboardView } from "@/hooks/use-dashboard-view";
 
 export default async function Home({
   searchParams,
@@ -14,18 +15,11 @@ export default async function Home({
   const viewParam = Array.isArray(rawView) ? rawView[0] : rawView;
   const supabase = await createServerSupabaseClient();
 
-  const [{ data: tasksData }, { data: shoppingData }, { data: watchData }] =
-    await Promise.all([
-      supabase.from("tasks").select("*"),
-      supabase.from("shopping_items").select("*"),
-      supabase.from("watch_items").select("*"),
-    ]);
-
-  const tasks = sortItemsByPriority((tasksData || []) as Task[]);
-  const shoppingItems = sortItemsByPriority(
-    (shoppingData || []) as ShoppingItem[],
-  );
-  const watchItems = sortItemsByPriority((watchData || []) as WatchItem[]);
+  const [{ data: listData }, { data: categoriesData }] = await Promise.all([
+    supabase.from("list_items").select("*"),
+    supabase.from("categories").select("*"),
+  ]);
+  const items = sortItemsByPriority((listData || []) as ListItem[]);
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -34,14 +28,14 @@ export default async function Home({
     redirect("/auth");
   }
 
+  const initialView: DashboardView =
+    viewParam === "settings" ? "settings" : "list";
+
   return (
     <UnifiedDashboard
-      initialTasks={tasks}
-      initialShoppingItems={shoppingItems}
-      initialWatchItems={watchItems}
-      initialView={
-        (viewParam as "tasks" | "shopping" | "watch" | "settings") || "tasks"
-      }
+      initialItems={items}
+      initialCategories={(categoriesData || []) as Category[]}
+      initialView={initialView}
     />
   );
 }
