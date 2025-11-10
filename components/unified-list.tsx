@@ -738,7 +738,7 @@ export function UnifiedList() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 px-2 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Overview</CardTitle>
