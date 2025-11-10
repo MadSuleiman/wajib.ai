@@ -8,11 +8,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { addDays, addMonths, addWeeks, addYears } from "date-fns";
 import { toast } from "sonner";
 
 import { createClientSupabaseClient } from "@/lib/supabase-client";
 import { sortItemsByPriority } from "@/components/list-utils";
-import type { Category, ListItem, TaskPriority } from "@/types";
+import type { Category, ListItem, RecurrenceType, TaskPriority } from "@/types";
 
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
@@ -24,22 +25,25 @@ interface AddItemInput {
   priority: TaskPriority;
   hours?: string;
   category?: string;
+  recurrenceType?: RecurrenceType;
+  recurrenceInterval?: number;
 }
 
 interface ListStore {
   items: ListItem[];
   isLoading: boolean;
   addItem: (input: AddItemInput) => Promise<boolean>;
-  toggleItemCompletion: (
-    itemId: string,
-    completed: boolean,
-  ) => Promise<boolean>;
+  toggleItemCompletion: (item: ListItem) => Promise<boolean>;
   updateItemPriority: (
     itemId: string,
     priority: TaskPriority,
   ) => Promise<boolean>;
   updateItemHours: (itemId: string, hours: string) => Promise<boolean>;
   updateItemCategory: (itemId: string, category: string) => Promise<boolean>;
+  updateItemRecurrence: (
+    itemId: string,
+    recurrence: { type: RecurrenceType; interval: number },
+  ) => Promise<boolean>;
   deleteItem: (itemId: string) => Promise<boolean>;
 }
 
@@ -82,8 +86,41 @@ export function SupabaseProvider({
     setItems((current) => current.filter((item) => item.id !== itemId));
   }, []);
 
+  const calculateNextOccurrence = useCallback(
+    (
+      recurrenceType: RecurrenceType,
+      recurrenceInterval: number,
+      fromDate: Date = new Date(),
+    ): Date | null => {
+      if (recurrenceType === "none") {
+        return null;
+      }
+
+      switch (recurrenceType) {
+        case "daily":
+          return addDays(fromDate, recurrenceInterval);
+        case "weekly":
+          return addWeeks(fromDate, recurrenceInterval);
+        case "monthly":
+          return addMonths(fromDate, recurrenceInterval);
+        case "yearly":
+          return addYears(fromDate, recurrenceInterval);
+        default:
+          return null;
+      }
+    },
+    [],
+  );
+
   const addItem: ListStore["addItem"] = useCallback(
-    async ({ title, priority, hours, category }) => {
+    async ({
+      title,
+      priority,
+      hours,
+      category,
+      recurrenceType = "none",
+      recurrenceInterval = 1,
+    }) => {
       const trimmedTitle = title.trim();
       if (!trimmedTitle) return false;
 
@@ -96,6 +133,16 @@ export function SupabaseProvider({
             ? null
             : parsedHours;
         const normalizedCategory = (category || "task").trim() || "task";
+        const normalizedRecurrenceType: RecurrenceType =
+          recurrenceType ?? "none";
+        const normalizedRecurrenceInterval =
+          recurrenceInterval && recurrenceInterval > 0
+            ? Math.floor(recurrenceInterval)
+            : 1;
+        const nextOccurrence = calculateNextOccurrence(
+          normalizedRecurrenceType,
+          normalizedRecurrenceInterval,
+        );
         const { data, error } = await supabase
           .from("list_items")
           .insert([
@@ -105,6 +152,11 @@ export function SupabaseProvider({
               priority,
               estimated_hours: estimatedHours,
               category: normalizedCategory,
+              recurrence_type: normalizedRecurrenceType,
+              recurrence_interval: normalizedRecurrenceInterval,
+              recurrence_next_occurrence: nextOccurrence
+                ? nextOccurrence.toISOString()
+                : null,
             },
           ] as never)
           .select()
@@ -130,16 +182,65 @@ export function SupabaseProvider({
         setIsLoading(false);
       }
     },
-    [supabase, refreshItem],
+    [supabase, refreshItem, calculateNextOccurrence],
   );
 
   const toggleItemCompletion: ListStore["toggleItemCompletion"] = useCallback(
-    async (itemId, completed) => {
+    async (item) => {
+      if (item.recurrence_type && item.recurrence_type !== "none") {
+        try {
+          const now = new Date();
+          const nextOccurrence = calculateNextOccurrence(
+            item.recurrence_type,
+            item.recurrence_interval || 1,
+            now,
+          );
+
+          const { data, error } = await supabase
+            .from("list_items")
+            .update({
+              completed: false,
+              recurrence_last_completed: now.toISOString(),
+              recurrence_next_occurrence: nextOccurrence
+                ? nextOccurrence.toISOString()
+                : null,
+            } as never)
+            .eq("id", item.id)
+            .select()
+            .single();
+
+          if (error) throw error;
+
+          await supabase.from("recurrence_logs").insert([
+            {
+              list_item_id: item.id,
+              user_id: item.user_id,
+            },
+          ] as never);
+
+          if (data) {
+            refreshItem(data as ListItem);
+          }
+
+          toast.success("Recurring task logged", {
+            description: "Next occurrence scheduled automatically.",
+          });
+          return true;
+        } catch (error: unknown) {
+          toast.error("Failed to log recurring task", {
+            description:
+              getErrorMessage(error) ||
+              "Something went wrong. Please try again.",
+          });
+          return false;
+        }
+      }
+
       try {
         const { data, error } = await supabase
           .from("list_items")
-          .update({ completed: !completed } as never)
-          .eq("id", itemId)
+          .update({ completed: !item.completed } as never)
+          .eq("id", item.id)
           .select()
           .single();
 
@@ -156,7 +257,7 @@ export function SupabaseProvider({
         return false;
       }
     },
-    [supabase, refreshItem],
+    [calculateNextOccurrence, refreshItem, supabase],
   );
 
   const updateItemPriority: ListStore["updateItemPriority"] = useCallback(
@@ -223,7 +324,7 @@ export function SupabaseProvider({
   const updateItemCategory: ListStore["updateItemCategory"] = useCallback(
     async (itemId, category) => {
       try {
-        const normalizedCategory = category.trim() || "general";
+        const normalizedCategory = category.trim() || "task";
         const { data, error } = await supabase
           .from("list_items")
           .update({ category: normalizedCategory } as never)
@@ -246,6 +347,55 @@ export function SupabaseProvider({
       }
     },
     [supabase, refreshItem],
+  );
+
+  const updateItemRecurrence: ListStore["updateItemRecurrence"] = useCallback(
+    async (itemId, { type, interval }) => {
+      try {
+        const normalizedType: RecurrenceType = type ?? "none";
+        const normalizedInterval =
+          interval && interval > 0 ? Math.floor(interval) : 1;
+        const nextOccurrence = calculateNextOccurrence(
+          normalizedType,
+          normalizedInterval,
+        );
+
+        const updates: Record<string, unknown> = {
+          recurrence_type: normalizedType,
+          recurrence_interval: normalizedInterval,
+          recurrence_next_occurrence: nextOccurrence
+            ? nextOccurrence.toISOString()
+            : null,
+        };
+
+        if (normalizedType === "none") {
+          updates.recurrence_last_completed = null;
+        } else {
+          updates.completed = false;
+        }
+
+        const { data, error } = await supabase
+          .from("list_items")
+          .update(updates as never)
+          .eq("id", itemId)
+          .select()
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          refreshItem(data as ListItem);
+        }
+        toast.success("Recurrence updated");
+        return true;
+      } catch (error: unknown) {
+        toast.error("Failed to update recurrence", {
+          description:
+            getErrorMessage(error) || "Something went wrong. Please try again.",
+        });
+        return false;
+      }
+    },
+    [calculateNextOccurrence, refreshItem, supabase],
   );
 
   const deleteItem: ListStore["deleteItem"] = useCallback(
@@ -284,6 +434,7 @@ export function SupabaseProvider({
         updateItemPriority,
         updateItemHours,
         updateItemCategory,
+        updateItemRecurrence,
         deleteItem,
       },
       categories,
@@ -296,6 +447,7 @@ export function SupabaseProvider({
       updateItemPriority,
       updateItemHours,
       updateItemCategory,
+      updateItemRecurrence,
       deleteItem,
       categories,
     ],

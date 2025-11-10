@@ -27,7 +27,7 @@ import {
   type SortOptionValue,
   sortConfigFromValue,
 } from "@/components/list-utils";
-import type { Category, ListItem, TaskPriority } from "@/types";
+import type { Category, ListItem, TaskPriority, RecurrenceType } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -66,6 +66,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis } from "recharts";
 
 type StatusFilter = "active" | "completed" | "all";
 
@@ -133,6 +139,28 @@ const ToolbarButton = ({
   </Button>
 );
 
+const recurrenceOptions: {
+  label: string;
+  value: RecurrenceType;
+  description: string;
+}[] = [
+  { label: "One-time", value: "none", description: "Does not repeat" },
+  { label: "Daily", value: "daily", description: "Repeats every N day(s)" },
+  { label: "Weekly", value: "weekly", description: "Repeats every N week(s)" },
+  {
+    label: "Monthly",
+    value: "monthly",
+    description: "Repeats every N month(s)",
+  },
+  { label: "Yearly", value: "yearly", description: "Repeats every N year(s)" },
+];
+
+const recurrenceLabelMap: Record<RecurrenceType, string> =
+  recurrenceOptions.reduce(
+    (acc, option) => ({ ...acc, [option.value]: option.label }),
+    {} as Record<RecurrenceType, string>,
+  );
+
 export function UnifiedList() {
   const isMobile = useIsMobile();
   const supabaseContext = useSupabase();
@@ -144,6 +172,7 @@ export function UnifiedList() {
     updateItemPriority,
     updateItemHours,
     updateItemCategory,
+    updateItemRecurrence,
     deleteItem,
   } = supabaseContext.items;
   const categories: Category[] = supabaseContext.categories;
@@ -155,6 +184,10 @@ export function UnifiedList() {
   const [newItemCategory, setNewItemCategory] = useState<string>(
     () => categories[0]?.slug ?? "task",
   );
+  const [newItemRecurrenceType, setNewItemRecurrenceType] =
+    useState<RecurrenceType>("none");
+  const [newItemRecurrenceInterval, setNewItemRecurrenceInterval] =
+    useState<string>("1");
   const [groupMode, setGroupMode] = useState<ItemGroupMode>("month");
   const [sortValue, setSortValue] = useState<SortOptionValue>(defaultSortValue);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
@@ -229,6 +262,10 @@ export function UnifiedList() {
     [items],
   );
   const activeCount = items.length - completedCount;
+  const recurringCount = useMemo(
+    () => items.filter((item) => item.recurrence_type !== "none").length,
+    [items],
+  );
 
   const summaryText = `Showing ${sortedItems.length} of ${items.length} items (${activeCount} active, ${completedCount} completed)`;
 
@@ -244,14 +281,53 @@ export function UnifiedList() {
     </div>
   );
 
+  const categoryChartData = useMemo(() => {
+    return categoryOptions
+      .map((option) => ({
+        name: option.label,
+        count: items.filter((item) => item.category === option.value).length,
+      }))
+      .filter((entry) => entry.count > 0)
+      .slice(0, 8);
+  }, [categoryOptions, items]);
+
+  const recurringBreakdownData = useMemo(() => {
+    return recurrenceOptions
+      .filter((option) => option.value !== "none")
+      .map((option) => ({
+        cadence: option.label,
+        count: items.filter((item) => item.recurrence_type === option.value)
+          .length,
+      }))
+      .filter((entry) => entry.count > 0);
+  }, [items]);
+
+  const chartConfig = {
+    count: {
+      label: "Tasks",
+      color: "hsl(var(--chart-1))",
+    },
+    value: {
+      label: "Tasks",
+      color: "hsl(var(--chart-2))",
+    },
+  } as const;
+
   const handleAddItem = useCallback(
     async (event: React.FormEvent) => {
       event.preventDefault();
+      const parsedInterval = Number.parseInt(newItemRecurrenceInterval, 10);
+      const normalizedInterval = Number.isNaN(parsedInterval)
+        ? 1
+        : Math.max(1, parsedInterval);
+
       const success = await addItem({
         title: newItemTitle,
         priority: newItemPriority,
         hours: newItemHours,
         category: newItemCategory,
+        recurrenceType: newItemRecurrenceType,
+        recurrenceInterval: normalizedInterval,
       });
 
       if (success) {
@@ -259,6 +335,8 @@ export function UnifiedList() {
         setNewItemPriority("medium");
         setNewItemHours("");
         setNewItemCategory(categoryOptions[0]?.value ?? "task");
+        setNewItemRecurrenceType("none");
+        setNewItemRecurrenceInterval("1");
       }
     },
     [
@@ -266,6 +344,8 @@ export function UnifiedList() {
       categoryOptions,
       newItemCategory,
       newItemHours,
+      newItemRecurrenceInterval,
+      newItemRecurrenceType,
       newItemPriority,
       newItemTitle,
     ],
@@ -287,7 +367,7 @@ export function UnifiedList() {
           <div className="flex items-start gap-3">
             <button
               type="button"
-              onClick={() => toggleItemCompletion(item.id, item.completed)}
+              onClick={() => toggleItemCompletion(item)}
               className="mt-1 flex h-5 w-5 items-center justify-center rounded-full border text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2"
               aria-pressed={item.completed}
             >
@@ -332,6 +412,64 @@ export function UnifiedList() {
               ))}
             </SelectContent>
           </Select>
+        ),
+      },
+      {
+        id: "recurrence",
+        header: "Recurrence",
+        cell: (item) => (
+          <div className="flex flex-col gap-1">
+            <Select
+              value={item.recurrence_type}
+              onValueChange={(value) =>
+                updateItemRecurrence(item.id, {
+                  type: value as RecurrenceType,
+                  interval: item.recurrence_interval || 1,
+                })
+              }
+            >
+              <SelectTrigger className="h-8 w-[140px] capitalize">
+                <SelectValue placeholder="Recurrence" />
+              </SelectTrigger>
+              <SelectContent>
+                {recurrenceOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              key={`${item.id}-${item.recurrence_interval}-${item.recurrence_type}`}
+              type="number"
+              min={1}
+              defaultValue={item.recurrence_interval || 1}
+              disabled={item.recurrence_type === "none"}
+              className="h-8 w-[100px]"
+              onBlur={(event) => {
+                const nextValue = Number.parseInt(event.target.value, 10);
+                if (
+                  Number.isNaN(nextValue) ||
+                  nextValue < 1 ||
+                  nextValue === item.recurrence_interval
+                ) {
+                  return;
+                }
+                void updateItemRecurrence(item.id, {
+                  type: item.recurrence_type,
+                  interval: nextValue,
+                });
+              }}
+            />
+            {item.recurrence_type !== "none" && (
+              <p className="text-xs text-muted-foreground">
+                Next:{" "}
+                {item.recurrence_next_occurrence
+                  ? formatDateLabel(item.recurrence_next_occurrence)
+                  : "Not scheduled"}
+              </p>
+            )}
+          </div>
         ),
       },
       {
@@ -413,6 +551,7 @@ export function UnifiedList() {
     updateItemCategory,
     updateItemHours,
     updateItemPriority,
+    updateItemRecurrence,
   ]);
 
   return (
@@ -551,6 +690,48 @@ export function UnifiedList() {
                 </Button>
               </div>
             </div>
+            <div className="flex flex-col gap-3 md:col-span-2 lg:col-span-4 md:flex-row md:items-end">
+              <div className="flex-1">
+                <Label>Recurrence</Label>
+                <Select
+                  value={newItemRecurrenceType}
+                  onValueChange={(value: RecurrenceType) =>
+                    setNewItemRecurrenceType(value)
+                  }
+                >
+                  <SelectTrigger className="w-full capitalize">
+                    <SelectValue placeholder="Does not repeat" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {recurrenceOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {
+                    recurrenceOptions.find(
+                      (option) => option.value === newItemRecurrenceType,
+                    )?.description
+                  }
+                </p>
+              </div>
+              <div className="flex-1 md:max-w-[180px]">
+                <Label htmlFor="item-recurrence-interval">Every</Label>
+                <Input
+                  id="item-recurrence-interval"
+                  type="number"
+                  min={1}
+                  value={newItemRecurrenceInterval}
+                  onChange={(event) =>
+                    setNewItemRecurrenceInterval(event.target.value)
+                  }
+                  disabled={newItemRecurrenceType === "none"}
+                />
+              </div>
+            </div>
           </form>
         </CardContent>
       </Card>
@@ -561,7 +742,7 @@ export function UnifiedList() {
             <CardTitle>Overview</CardTitle>
             <CardDescription>{summaryText}</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-3">
+          <CardContent className="grid gap-4 md:grid-cols-4">
             <div>
               <p className="text-sm text-muted-foreground">Active</p>
               <p className="text-2xl font-semibold">{activeCount}</p>
@@ -573,6 +754,10 @@ export function UnifiedList() {
             <div>
               <p className="text-sm text-muted-foreground">Categories</p>
               <p className="text-2xl font-semibold">{categoryOptions.length}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Recurring</p>
+              <p className="text-2xl font-semibold">{recurringCount}</p>
             </div>
           </CardContent>
         </Card>
@@ -677,6 +862,93 @@ export function UnifiedList() {
             </ToolbarButton>
           </CardFooter>
         </Card>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card className="border bg-card/50 backdrop-blur-3xl">
+            <CardHeader className="pb-2">
+              <CardTitle>Category distribution</CardTitle>
+              <CardDescription>
+                How your tasks spread across focus areas.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-2">
+              {categoryChartData.length ? (
+                <ChartContainer
+                  config={chartConfig}
+                  className="h-[240px] w-full"
+                >
+                  <BarChart data={categoryChartData}>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="name"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="count" fill="var(--color-count)" radius={6} />
+                  </BarChart>
+                </ChartContainer>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Start adding items to see category insights.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+          <Card className="border bg-card/50 backdrop-blur-3xl">
+            <CardHeader className="pb-2">
+              <CardTitle>Recurring cadence</CardTitle>
+              <CardDescription>
+                Track how many routines you are maintaining.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-2">
+              {recurringBreakdownData.length ? (
+                <ChartContainer
+                  config={chartConfig}
+                  className="h-[240px] w-full"
+                >
+                  <LineChart data={recurringBreakdownData}>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="cadence"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Line
+                      type="monotone"
+                      dataKey="count"
+                      stroke="var(--color-count)"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
+                  </LineChart>
+                </ChartContainer>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Mark tasks as recurring to see cadence analytics.
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs uppercase text-muted-foreground">
+                    Active
+                  </p>
+                  <p className="text-lg font-semibold">{activeCount}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-muted-foreground">
+                    Completed
+                  </p>
+                  <p className="text-lg font-semibold">{completedCount}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -712,9 +984,7 @@ export function UnifiedList() {
                       </div>
                       <button
                         type="button"
-                        onClick={() =>
-                          toggleItemCompletion(item.id, item.completed)
-                        }
+                        onClick={() => toggleItemCompletion(item)}
                         className="flex h-8 w-8 items-center justify-center rounded-full border text-muted-foreground transition hover:border-primary hover:text-primary"
                         aria-pressed={item.completed}
                       >
@@ -752,7 +1022,61 @@ export function UnifiedList() {
                           : "No estimate"}
                       </span>
                     </div>
+                    {item.recurrence_type !== "none" && (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {recurrenceLabelMap[item.recurrence_type]} every{" "}
+                        {item.recurrence_interval} • Next{" "}
+                        {item.recurrence_next_occurrence
+                          ? formatDateLabel(item.recurrence_next_occurrence)
+                          : "not scheduled"}
+                      </p>
+                    )}
                     <div className="mt-3 flex items-center gap-3">
+                      <Select
+                        value={item.recurrence_type}
+                        onValueChange={(value) =>
+                          updateItemRecurrence(item.id, {
+                            type: value as RecurrenceType,
+                            interval: item.recurrence_interval || 1,
+                          })
+                        }
+                      >
+                        <SelectTrigger className="h-8 flex-1 capitalize">
+                          <SelectValue placeholder="Recurrence" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {recurrenceOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {item.recurrence_type !== "none" && (
+                        <Input
+                          type="number"
+                          min={1}
+                          defaultValue={item.recurrence_interval || 1}
+                          className="h-8 w-16"
+                          onBlur={(event) => {
+                            const nextValue = Number.parseInt(
+                              event.target.value,
+                              10,
+                            );
+                            if (
+                              Number.isNaN(nextValue) ||
+                              nextValue < 1 ||
+                              nextValue === item.recurrence_interval
+                            ) {
+                              return;
+                            }
+                            void updateItemRecurrence(item.id, {
+                              type: item.recurrence_type,
+                              interval: nextValue,
+                            });
+                          }}
+                        />
+                      )}
                       <EditableHoursField
                         itemId={item.id}
                         initialValue={item.estimated_hours ?? null}
