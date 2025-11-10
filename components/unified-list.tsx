@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import {
   Check,
@@ -100,6 +100,8 @@ const statusOptions: { label: string; value: StatusFilter }[] = [
   { label: "All", value: "all" },
 ];
 
+type DerivedStatus = Exclude<StatusFilter, "all">;
+
 const columnIdBySortKey: Record<SortKey, string | undefined> = {
   priority: "priority",
   date: "added",
@@ -122,6 +124,31 @@ const formatAddedDescription = (createdAt: string) => {
     addSuffix: true,
   });
   return `${absolute} · ${relative}`;
+};
+
+const getTimeValue = (value?: string | null): number | null => {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const getDerivedStatus = (item: ListItem, now: number): DerivedStatus => {
+  if (!item.recurrence_type || item.recurrence_type === "none") {
+    return item.completed ? "completed" : "active";
+  }
+
+  const lastCompleted = getTimeValue(item.recurrence_last_completed);
+  const nextOccurrence = getTimeValue(item.recurrence_next_occurrence);
+
+  if (!lastCompleted) {
+    return "active";
+  }
+
+  if (!nextOccurrence) {
+    return "active";
+  }
+
+  return nextOccurrence <= now ? "active" : "completed";
 };
 
 type ToolbarButtonProps = React.ComponentProps<typeof Button> & {
@@ -219,6 +246,16 @@ export function UnifiedList() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [categoryPopoverOpen, setCategoryPopoverOpen] = useState(false);
+  const [timeMarker, setTimeMarker] = useState(() => Date.now());
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setTimeMarker(Date.now());
+    }, 60_000);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   const fallbackCategory = categories[0]?.slug ?? "task";
   const newItemCategory = useMemo(() => {
@@ -244,6 +281,14 @@ export function UnifiedList() {
     return new Map(categoryOptions.map((option) => [option.value, option]));
   }, [categoryOptions]);
 
+  const derivedStatuses = useMemo(() => {
+    const now = timeMarker;
+    return items.reduce((map, item) => {
+      map.set(item.id, getDerivedStatus(item, now));
+      return map;
+    }, new Map<string, DerivedStatus>());
+  }, [items, timeMarker]);
+
   const sortConfig = useMemo(() => sortConfigFromValue(sortValue), [sortValue]);
 
   const tableSortState = useMemo<DataTableSortState | undefined>(() => {
@@ -254,19 +299,16 @@ export function UnifiedList() {
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
+      const derivedStatus = derivedStatuses.get(item.id) ?? "active";
       const matchesStatus =
-        statusFilter === "all"
-          ? true
-          : statusFilter === "completed"
-            ? item.completed
-            : !item.completed;
+        statusFilter === "all" ? true : statusFilter === derivedStatus;
 
       const matchesCategory =
         categoryFilter === "all" ? true : item.category === categoryFilter;
 
       return matchesStatus && matchesCategory;
     });
-  }, [items, statusFilter, categoryFilter]);
+  }, [categoryFilter, derivedStatuses, items, statusFilter]);
 
   const sortedItems = useMemo(
     () => sortItems(filteredItems, sortConfig),
@@ -306,11 +348,18 @@ export function UnifiedList() {
         })()
       : groupedItems;
 
-  const completedCount = useMemo(
-    () => items.filter((item) => item.completed).length,
-    [items],
-  );
-  const activeCount = items.length - completedCount;
+  const { activeCount, completedCount } = useMemo(() => {
+    let completed = 0;
+    derivedStatuses.forEach((status) => {
+      if (status === "completed") {
+        completed += 1;
+      }
+    });
+    return {
+      completedCount: completed,
+      activeCount: items.length - completed,
+    };
+  }, [derivedStatuses, items.length]);
   const recurringCount = useMemo(
     () => items.filter((item) => item.recurrence_type !== "none").length,
     [items],
@@ -412,35 +461,39 @@ export function UnifiedList() {
         id: "title",
         header: "Item",
         sortable: true,
-        cell: (item) => (
-          <div className="flex items-start gap-3">
-            <button
-              type="button"
-              onClick={() => toggleItemCompletion(item)}
-              className="mt-1 flex h-5 w-5 items-center justify-center rounded-full border text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2"
-              aria-pressed={item.completed}
-            >
-              {item.completed ? (
-                <CheckCircle2 className="h-4 w-4 text-primary" />
-              ) : (
-                <Circle className="h-4 w-4" />
-              )}
-            </button>
-            <div className="flex flex-col gap-1">
-              <span
-                className={cn(
-                  "font-medium leading-tight",
-                  item.completed && "text-muted-foreground line-through",
-                )}
+        cell: (item) => {
+          const isCompleted =
+            (derivedStatuses.get(item.id) ?? "active") === "completed";
+          return (
+            <div className="flex items-start gap-3">
+              <button
+                type="button"
+                onClick={() => toggleItemCompletion(item)}
+                className="mt-1 flex h-5 w-5 items-center justify-center rounded-full border text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2"
+                aria-pressed={isCompleted}
               >
-                {item.title}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {formatAddedDescription(item.created_at)}
-              </span>
+                {isCompleted ? (
+                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                ) : (
+                  <Circle className="h-4 w-4" />
+                )}
+              </button>
+              <div className="flex flex-col gap-1">
+                <span
+                  className={cn(
+                    "font-medium leading-tight",
+                    isCompleted && "text-muted-foreground line-through",
+                  )}
+                >
+                  {item.title}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {formatAddedDescription(item.created_at)}
+                </span>
+              </div>
             </div>
-          </div>
-        ),
+          );
+        },
       },
       {
         id: "category",
@@ -596,6 +649,7 @@ export function UnifiedList() {
   }, [
     categoryOptions,
     deleteItem,
+    derivedStatuses,
     toggleItemCompletion,
     updateItemCategory,
     updateItemHours,
@@ -790,6 +844,84 @@ export function UnifiedList() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
+            <CardTitle>Category distribution</CardTitle>
+            <CardDescription>
+              How your tasks spread across focus areas.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {categoryChartData.length ? (
+              <ChartContainer config={chartConfig} className="w-full">
+                <BarChart data={categoryChartData}>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="name"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                  />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="count" fill="var(--color-count)" radius={6} />
+                </BarChart>
+              </ChartContainer>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Start adding items to see category insights.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Recurring cadence</CardTitle>
+            <CardDescription>
+              Track how many routines you are maintaining.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-2">
+            {recurringBreakdownData.length ? (
+              <ChartContainer config={chartConfig} className="w-full">
+                <LineChart data={recurringBreakdownData}>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="cadence"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                  />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Line
+                    type="monotone"
+                    dataKey="count"
+                    stroke="var(--color-count)"
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                  />
+                </LineChart>
+              </ChartContainer>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Mark tasks as recurring to see cadence analytics.
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">
+                  Active
+                </p>
+                <p className="text-lg font-semibold">{activeCount}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">
+                  Completed
+                </p>
+                <p className="text-lg font-semibold">{completedCount}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
             <CardTitle>Overview</CardTitle>
             <CardDescription>{summaryText}</CardDescription>
           </CardHeader>
@@ -913,85 +1045,6 @@ export function UnifiedList() {
             </ToolbarButton>
           </CardFooter>
         </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Category distribution</CardTitle>
-            <CardDescription>
-              How your tasks spread across focus areas.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {categoryChartData.length ? (
-              <ChartContainer config={chartConfig} className="w-full">
-                <BarChart data={categoryChartData}>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="name"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                  />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="count" fill="var(--color-count)" radius={6} />
-                </BarChart>
-              </ChartContainer>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Start adding items to see category insights.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Recurring cadence</CardTitle>
-            <CardDescription>
-              Track how many routines you are maintaining.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-2">
-            {recurringBreakdownData.length ? (
-              <ChartContainer config={chartConfig} className="w-full">
-                <LineChart data={recurringBreakdownData}>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="cadence"
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={8}
-                  />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Line
-                    type="monotone"
-                    dataKey="count"
-                    stroke="var(--color-count)"
-                    strokeWidth={2}
-                    dot={{ r: 3 }}
-                  />
-                </LineChart>
-              </ChartContainer>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Mark tasks as recurring to see cadence analytics.
-              </p>
-            )}
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="text-xs uppercase text-muted-foreground">
-                  Active
-                </p>
-                <p className="text-lg font-semibold">{activeCount}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase text-muted-foreground">
-                  Completed
-                </p>
-                <p className="text-lg font-semibold">{completedCount}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       <div className="space-y-4">
@@ -1015,6 +1068,9 @@ export function UnifiedList() {
                         const categoryInfo = categoryMap.get(item.category);
                         const categoryLabel =
                           categoryInfo?.label ?? item.category;
+                        const isCompleted =
+                          (derivedStatuses.get(item.id) ?? "active") ===
+                          "completed";
 
                         return (
                           <div
@@ -1026,7 +1082,7 @@ export function UnifiedList() {
                                 <p
                                   className={cn(
                                     "text-base font-semibold leading-tight",
-                                    item.completed &&
+                                    isCompleted &&
                                       "text-muted-foreground line-through",
                                   )}
                                 >
@@ -1040,9 +1096,9 @@ export function UnifiedList() {
                                 type="button"
                                 onClick={() => toggleItemCompletion(item)}
                                 className="flex h-8 w-8 items-center justify-center rounded-full border text-muted-foreground transition hover:border-primary hover:text-primary"
-                                aria-pressed={item.completed}
+                                aria-pressed={isCompleted}
                               >
-                                {item.completed ? (
+                                {isCompleted ? (
                                   <CheckCircle2 className="h-5 w-5 text-primary" />
                                 ) : (
                                   <Circle className="h-5 w-5" />
