@@ -139,7 +139,7 @@ export function NewItemCard({
               id="item-title"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="Ex. Renew passport, pick up groceries, watch Dune 2"
+              placeholder="Ex. Renew passport, pick up groceries, watch The Office"
             />
           </div>
 

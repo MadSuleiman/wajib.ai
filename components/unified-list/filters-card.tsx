@@ -71,8 +71,8 @@ export function FiltersCard({
           Focus on just the items you care about.
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
+      <CardContent className="flex flex-wrap gap-2 pb-0">
+        <div className="space-y-1">
           <Label>Status</Label>
           <Select
             value={statusFilter}
@@ -91,7 +91,7 @@ export function FiltersCard({
           </Select>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-1">
           <Label>Category</Label>
           <Select
             value={categoryFilter}
@@ -111,7 +111,7 @@ export function FiltersCard({
           </Select>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-1">
           <Label>Grouping</Label>
           <Select
             value={groupMode}
@@ -130,7 +130,7 @@ export function FiltersCard({
           </Select>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-1">
           <Label>Sort</Label>
           <Select
             value={sortValue}

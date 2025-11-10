@@ -127,22 +127,22 @@ export function InsightsGrid({
           <CardTitle>Overview</CardTitle>
           <CardDescription>{summaryText}</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-4">
+        <CardContent className="flex flex-wrap justify-between gap-2">
           <div>
             <p className="text-sm text-muted-foreground">Active</p>
-            <p className="text-2xl font-semibold">{activeCount}</p>
+            <p className="text-xl font-semibold">{activeCount}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Completed</p>
-            <p className="text-2xl font-semibold">{completedCount}</p>
+            <p className="text-xl font-semibold">{completedCount}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Categories</p>
-            <p className="text-2xl font-semibold">{categoryCount}</p>
+            <p className="text-xl font-semibold">{categoryCount}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Recurring</p>
-            <p className="text-2xl font-semibold">{recurringCount}</p>
+            <p className="text-xl font-semibold">{recurringCount}</p>
           </div>
         </CardContent>
       </Card>
