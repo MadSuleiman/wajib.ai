@@ -305,11 +305,11 @@ export function UnifiedList() {
   const chartConfig = {
     count: {
       label: "Tasks",
-      color: "hsl(var(--chart-1))",
+      color: "var(--chart-1)",
     },
     value: {
       label: "Tasks",
-      color: "hsl(var(--chart-2))",
+      color: "var(--chart-2)",
     },
   } as const;
 
@@ -556,7 +556,7 @@ export function UnifiedList() {
 
   return (
     <div className="space-y-6">
-      <Card className="border bg-card/50 backdrop-blur-3xl">
+      <Card>
         <CardHeader>
           <CardTitle>Capture an item</CardTitle>
           <CardDescription>
@@ -565,11 +565,8 @@ export function UnifiedList() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form
-            onSubmit={handleAddItem}
-            className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
-          >
-            <div className="md:col-span-2">
+          <form onSubmit={handleAddItem} className="space-y-3 lg:space-y-2">
+            <div className="space-y-2">
               <Label htmlFor="item-title">Title</Label>
               <Input
                 id="item-title"
@@ -578,64 +575,65 @@ export function UnifiedList() {
                 placeholder="Ex. Renew passport, pick up groceries, watch Dune 2"
               />
             </div>
-            <div>
-              <Label htmlFor="item-category">Category</Label>
-              <Popover
-                open={categoryPopoverOpen}
-                onOpenChange={setCategoryPopoverOpen}
-              >
-                <PopoverTrigger asChild>
-                  <Button
-                    id="item-category"
-                    type="button"
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={categoryPopoverOpen}
-                    className="w-full justify-between"
-                    disabled={!categoryOptions.length}
-                  >
-                    {categoryMap.get(newItemCategory)?.label ||
-                      "Select category"}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[240px] p-0">
-                  <Command>
-                    <CommandInput
-                      placeholder="Search category..."
-                      className="h-9"
-                    />
-                    <CommandList>
-                      <CommandEmpty>No category found.</CommandEmpty>
-                      <CommandGroup>
-                        {categoryOptions.map((option) => (
-                          <CommandItem
-                            key={option.value}
-                            value={option.value}
-                            onSelect={(currentValue) => {
-                              setNewItemCategory(currentValue);
-                              setCategoryPopoverOpen(false);
-                            }}
-                          >
-                            {option.label}
-                            <Check
-                              className={cn(
-                                "ml-auto h-4 w-4",
-                                newItemCategory === option.value
-                                  ? "opacity-100"
-                                  : "opacity-0",
-                              )}
-                            />
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="flex gap-4 md:col-span-2 lg:col-span-4">
-              <div className="flex-1">
+
+            <div className="grid grid-cols-2 gap-3 md:gap-2">
+              <div className="space-y-2">
+                <Label htmlFor="item-category">Category</Label>
+                <Popover
+                  open={categoryPopoverOpen}
+                  onOpenChange={setCategoryPopoverOpen}
+                >
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="item-category"
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={categoryPopoverOpen}
+                      className="w-full justify-between"
+                      disabled={!categoryOptions.length}
+                    >
+                      {categoryMap.get(newItemCategory)?.label ||
+                        "Select category"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[240px] p-0">
+                    <Command>
+                      <CommandInput
+                        placeholder="Search category..."
+                        className="h-9"
+                      />
+                      <CommandList>
+                        <CommandEmpty>No category found.</CommandEmpty>
+                        <CommandGroup>
+                          {categoryOptions.map((option) => (
+                            <CommandItem
+                              key={option.value}
+                              value={option.value}
+                              onSelect={(currentValue) => {
+                                setNewItemCategory(currentValue);
+                                setCategoryPopoverOpen(false);
+                              }}
+                            >
+                              {option.label}
+                              <Check
+                                className={cn(
+                                  "ml-auto h-4 w-4",
+                                  newItemCategory === option.value
+                                    ? "opacity-100"
+                                    : "opacity-0",
+                                )}
+                              />
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-2">
                 <Label>Priority</Label>
                 <Select
                   value={newItemPriority}
@@ -660,7 +658,53 @@ export function UnifiedList() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex-1">
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 md:gap-2">
+              <div className="space-y-2">
+                <Label>Recurrence</Label>
+                <Select
+                  value={newItemRecurrenceType}
+                  onValueChange={(value: RecurrenceType) =>
+                    setNewItemRecurrenceType(value)
+                  }
+                >
+                  <SelectTrigger className="w-full capitalize">
+                    <SelectValue placeholder="Does not repeat" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {recurrenceOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {
+                    recurrenceOptions.find(
+                      (option) => option.value === newItemRecurrenceType,
+                    )?.description
+                  }
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="item-recurrence-interval">Every</Label>
+                <Input
+                  id="item-recurrence-interval"
+                  type="number"
+                  min={1}
+                  value={newItemRecurrenceInterval}
+                  onChange={(event) =>
+                    setNewItemRecurrenceInterval(event.target.value)
+                  }
+                  disabled={newItemRecurrenceType === "none"}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 md:gap-2">
+              <div className="space-y-2">
                 <Label htmlFor="item-hours">Estimated hours</Label>
                 <Input
                   id="item-hours"
@@ -690,55 +734,13 @@ export function UnifiedList() {
                 </Button>
               </div>
             </div>
-            <div className="flex flex-col gap-3 md:col-span-2 lg:col-span-4 md:flex-row md:items-end">
-              <div className="flex-1">
-                <Label>Recurrence</Label>
-                <Select
-                  value={newItemRecurrenceType}
-                  onValueChange={(value: RecurrenceType) =>
-                    setNewItemRecurrenceType(value)
-                  }
-                >
-                  <SelectTrigger className="w-full capitalize">
-                    <SelectValue placeholder="Does not repeat" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {recurrenceOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  {
-                    recurrenceOptions.find(
-                      (option) => option.value === newItemRecurrenceType,
-                    )?.description
-                  }
-                </p>
-              </div>
-              <div className="flex-1 md:max-w-[180px]">
-                <Label htmlFor="item-recurrence-interval">Every</Label>
-                <Input
-                  id="item-recurrence-interval"
-                  type="number"
-                  min={1}
-                  value={newItemRecurrenceInterval}
-                  onChange={(event) =>
-                    setNewItemRecurrenceInterval(event.target.value)
-                  }
-                  disabled={newItemRecurrenceType === "none"}
-                />
-              </div>
-            </div>
           </form>
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="border bg-card/50 backdrop-blur-3xl">
-          <CardHeader className="pb-2">
+      <div className="grid gap-4 px-2 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
             <CardTitle>Overview</CardTitle>
             <CardDescription>{summaryText}</CardDescription>
           </CardHeader>
@@ -762,8 +764,8 @@ export function UnifiedList() {
           </CardContent>
         </Card>
 
-        <Card className="border bg-card/50 backdrop-blur-3xl">
-          <CardHeader className="pb-2">
+        <Card className="border bg-card/50 backdrop-blur-3xl w-full">
+          <CardHeader>
             <CardTitle>Filters &amp; grouping</CardTitle>
             <CardDescription>
               Focus on just the items you care about.
@@ -863,92 +865,84 @@ export function UnifiedList() {
           </CardFooter>
         </Card>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Card className="border bg-card/50 backdrop-blur-3xl">
-            <CardHeader className="pb-2">
-              <CardTitle>Category distribution</CardTitle>
-              <CardDescription>
-                How your tasks spread across focus areas.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-2">
-              {categoryChartData.length ? (
-                <ChartContainer
-                  config={chartConfig}
-                  className="h-[240px] w-full"
-                >
-                  <BarChart data={categoryChartData}>
-                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="name"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                    />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Bar dataKey="count" fill="var(--color-count)" radius={6} />
-                  </BarChart>
-                </ChartContainer>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Start adding items to see category insights.
+        <Card>
+          <CardHeader>
+            <CardTitle>Category distribution</CardTitle>
+            <CardDescription>
+              How your tasks spread across focus areas.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {categoryChartData.length ? (
+              <ChartContainer config={chartConfig} className="w-full">
+                <BarChart data={categoryChartData}>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="name"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                  />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="count" fill="var(--color-count)" radius={6} />
+                </BarChart>
+              </ChartContainer>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Start adding items to see category insights.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Recurring cadence</CardTitle>
+            <CardDescription>
+              Track how many routines you are maintaining.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-2">
+            {recurringBreakdownData.length ? (
+              <ChartContainer config={chartConfig} className="h-[240px] w-full">
+                <LineChart data={recurringBreakdownData}>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="cadence"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                  />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Line
+                    type="monotone"
+                    dataKey="count"
+                    stroke="var(--color-count)"
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                  />
+                </LineChart>
+              </ChartContainer>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Mark tasks as recurring to see cadence analytics.
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">
+                  Active
                 </p>
-              )}
-            </CardContent>
-          </Card>
-          <Card className="border bg-card/50 backdrop-blur-3xl">
-            <CardHeader className="pb-2">
-              <CardTitle>Recurring cadence</CardTitle>
-              <CardDescription>
-                Track how many routines you are maintaining.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-2">
-              {recurringBreakdownData.length ? (
-                <ChartContainer
-                  config={chartConfig}
-                  className="h-[240px] w-full"
-                >
-                  <LineChart data={recurringBreakdownData}>
-                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="cadence"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                    />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line
-                      type="monotone"
-                      dataKey="count"
-                      stroke="var(--color-count)"
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                    />
-                  </LineChart>
-                </ChartContainer>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Mark tasks as recurring to see cadence analytics.
-                </p>
-              )}
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-xs uppercase text-muted-foreground">
-                    Active
-                  </p>
-                  <p className="text-lg font-semibold">{activeCount}</p>
-                </div>
-                <div>
-                  <p className="text-xs uppercase text-muted-foreground">
-                    Completed
-                  </p>
-                  <p className="text-lg font-semibold">{completedCount}</p>
-                </div>
+                <p className="text-lg font-semibold">{activeCount}</p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">
+                  Completed
+                </p>
+                <p className="text-lg font-semibold">{completedCount}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="space-y-4">
