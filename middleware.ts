@@ -34,8 +34,8 @@ export async function middleware(request: NextRequest) {
     },
   );
 
-  // Refresh session if expired
-  await supabase.auth.getUser();
+  // Refresh the auth session on every request so expired access tokens are renewed
+  await supabase.auth.getSession();
 
   return response;
 }
