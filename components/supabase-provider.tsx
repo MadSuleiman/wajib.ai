@@ -126,6 +126,17 @@ export function SupabaseProvider({
 
       setIsLoading(true);
       try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError) throw userError;
+        if (!user) {
+          toast.error("You must be signed in to add items.");
+          return false;
+        }
+
         const parsedHours =
           hours && hours.trim() !== "" ? Number.parseFloat(hours) : null;
         const estimatedHours =
@@ -152,6 +163,7 @@ export function SupabaseProvider({
               priority,
               estimated_hours: estimatedHours,
               category: normalizedCategory,
+              user_id: user.id,
               recurrence_type: normalizedRecurrenceType,
               recurrence_interval: normalizedRecurrenceInterval,
               recurrence_next_occurrence: nextOccurrence
