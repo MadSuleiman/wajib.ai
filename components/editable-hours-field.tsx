@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Clock, Loader2, Save } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -20,27 +20,22 @@ type EditableHoursFieldProps = {
 const formatHoursValue = (value: number | null) =>
   value === null || value === undefined ? "" : `${value}`;
 
-export function EditableHoursField({
+type EditableHoursFieldInnerProps = EditableHoursFieldProps & {
+  normalizedInitial: string;
+};
+
+function EditableHoursFieldInner({
   itemId,
-  initialValue,
+  normalizedInitial,
   onSave,
   className,
   inputClassName,
   showIcon = true,
   srLabel = "Save value",
-}: EditableHoursFieldProps) {
-  const [hours, setHours] = useState<string>(formatHoursValue(initialValue));
+}: EditableHoursFieldInnerProps) {
+  const [hours, setHours] = useState<string>(() => normalizedInitial);
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    const nextValue = formatHoursValue(initialValue);
-    setHours(nextValue);
-    setIsDirty(false);
-    setIsSaving(false);
-  }, [initialValue, itemId]);
-
-  const normalizedInitial = formatHoursValue(initialValue);
   const isValid =
     hours.trim() === "" || !Number.isNaN(Number.parseFloat(hours));
 
@@ -96,5 +91,18 @@ export function EditableHoursField({
         </Button>
       ) : null}
     </div>
+  );
+}
+
+export function EditableHoursField(props: EditableHoursFieldProps) {
+  const normalizedInitial = formatHoursValue(props.initialValue);
+  const resetKey = `${props.itemId}-${normalizedInitial}`;
+
+  return (
+    <EditableHoursFieldInner
+      key={resetKey}
+      {...props}
+      normalizedInitial={normalizedInitial}
+    />
   );
 }

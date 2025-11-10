@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useMemo, useState, useEffect } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import {
   Check,
@@ -181,9 +181,8 @@ export function UnifiedList() {
   const [newItemPriority, setNewItemPriority] =
     useState<TaskPriority>("medium");
   const [newItemHours, setNewItemHours] = useState("");
-  const [newItemCategory, setNewItemCategory] = useState<string>(
-    () => categories[0]?.slug ?? "task",
-  );
+  const [newItemCategorySelection, setNewItemCategorySelection] =
+    useState<string>(() => categories[0]?.slug ?? "task");
   const [newItemRecurrenceType, setNewItemRecurrenceType] =
     useState<RecurrenceType>("none");
   const [newItemRecurrenceInterval, setNewItemRecurrenceInterval] =
@@ -194,15 +193,13 @@ export function UnifiedList() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [categoryPopoverOpen, setCategoryPopoverOpen] = useState(false);
 
-  useEffect(() => {
-    if (!categories.length) return;
-    const isValid = categories.some(
-      (category) => category.slug === newItemCategory,
+  const fallbackCategory = categories[0]?.slug ?? "task";
+  const newItemCategory = useMemo(() => {
+    const exists = categories.some(
+      (category) => category.slug === newItemCategorySelection,
     );
-    if (!isValid) {
-      setNewItemCategory(categories[0]?.slug ?? "task");
-    }
-  }, [categories, newItemCategory]);
+    return exists ? newItemCategorySelection : fallbackCategory;
+  }, [categories, fallbackCategory, newItemCategorySelection]);
 
   const categoryOptions = useMemo(() => {
     return [...categories]
@@ -334,14 +331,14 @@ export function UnifiedList() {
         setNewItemTitle("");
         setNewItemPriority("medium");
         setNewItemHours("");
-        setNewItemCategory(categoryOptions[0]?.value ?? "task");
+        setNewItemCategorySelection(fallbackCategory);
         setNewItemRecurrenceType("none");
         setNewItemRecurrenceInterval("1");
       }
     },
     [
       addItem,
-      categoryOptions,
+      fallbackCategory,
       newItemCategory,
       newItemHours,
       newItemRecurrenceInterval,
@@ -612,7 +609,7 @@ export function UnifiedList() {
                               key={option.value}
                               value={option.value}
                               onSelect={(currentValue) => {
-                                setNewItemCategory(currentValue);
+                                setNewItemCategorySelection(currentValue);
                                 setCategoryPopoverOpen(false);
                               }}
                             >
@@ -903,7 +900,7 @@ export function UnifiedList() {
           </CardHeader>
           <CardContent className="space-y-4 pt-2">
             {recurringBreakdownData.length ? (
-              <ChartContainer config={chartConfig} className="h-[240px] w-full">
+              <ChartContainer config={chartConfig} className="w-full">
                 <LineChart data={recurringBreakdownData}>
                   <CartesianGrid vertical={false} strokeDasharray="3 3" />
                   <XAxis
