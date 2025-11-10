@@ -161,6 +161,33 @@ const recurrenceLabelMap: Record<RecurrenceType, string> =
     {} as Record<RecurrenceType, string>,
   );
 
+const splitDailyRecurringItems = <
+  T extends { recurrence_type?: RecurrenceType | null },
+>(
+  items: T[],
+) => {
+  if (!items.length) {
+    return { prioritized: items, daily: [] as T[], others: [] as T[] };
+  }
+
+  const daily: T[] = [];
+  const others: T[] = [];
+
+  for (const item of items) {
+    if (item.recurrence_type === "daily") {
+      daily.push(item);
+    } else {
+      others.push(item);
+    }
+  }
+
+  if (daily.length === 0 || daily.length === items.length) {
+    return { prioritized: items, daily, others };
+  }
+
+  return { prioritized: [...daily, ...others], daily, others };
+};
+
 export function UnifiedList() {
   const isMobile = useIsMobile();
   const supabaseContext = useSupabase();
@@ -246,13 +273,38 @@ export function UnifiedList() {
     [filteredItems, sortConfig],
   );
 
+  const {
+    prioritized: prioritizedItems,
+    daily: dailyRecurringItems,
+    others: nonDailyItems,
+  } = useMemo(() => splitDailyRecurringItems(sortedItems), [sortedItems]);
+
   const groupedItems = useMemo(
-    () => groupItems(sortedItems, groupMode),
-    [sortedItems, groupMode],
+    () => groupItems(prioritizedItems, groupMode),
+    [prioritizedItems, groupMode],
   );
 
   const displayGroups =
-    groupMode === "none" ? [{ label: "", items: sortedItems }] : groupedItems;
+    groupMode === "none"
+      ? (() => {
+          const groups = [
+            ...(dailyRecurringItems.length
+              ? [{ label: "Daily recurring", items: dailyRecurringItems }]
+              : []),
+            ...(nonDailyItems.length
+              ? [
+                  {
+                    label: dailyRecurringItems.length ? "Other tasks" : "",
+                    items: nonDailyItems,
+                  },
+                ]
+              : []),
+          ];
+          return groups.length
+            ? groups
+            : [{ label: "", items: prioritizedItems }];
+        })()
+      : groupedItems;
 
   const completedCount = useMemo(
     () => items.filter((item) => item.completed).length,
@@ -264,7 +316,7 @@ export function UnifiedList() {
     [items],
   );
 
-  const summaryText = `Showing ${sortedItems.length} of ${items.length} items (${activeCount} active, ${completedCount} completed)`;
+  const summaryText = `Showing ${prioritizedItems.length} of ${items.length} items (${activeCount} active, ${completedCount} completed)`;
 
   const emptyStateMessage =
     items.length === 0
@@ -947,148 +999,167 @@ export function UnifiedList() {
           <p className="text-sm text-muted-foreground">{summaryText}</p>
         )}
         {isMobile ? (
-          sortedItems.length ? (
-            <div className="space-y-3">
-              {sortedItems.map((item) => {
-                const categoryInfo = categoryMap.get(item.category);
-                const categoryLabel = categoryInfo?.label ?? item.category;
-
-                return (
-                  <div
-                    key={item.id}
-                    className="rounded-2xl border bg-card/50 p-4 shadow-sm backdrop-blur"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p
-                          className={cn(
-                            "text-base font-semibold leading-tight",
-                            item.completed &&
-                              "text-muted-foreground line-through",
-                          )}
-                        >
-                          {item.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatAddedDescription(item.created_at)}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => toggleItemCompletion(item)}
-                        className="flex h-8 w-8 items-center justify-center rounded-full border text-muted-foreground transition hover:border-primary hover:text-primary"
-                        aria-pressed={item.completed}
-                      >
-                        {item.completed ? (
-                          <CheckCircle2 className="h-5 w-5 text-primary" />
-                        ) : (
-                          <Circle className="h-5 w-5" />
-                        )}
-                      </button>
-                    </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                      <Badge
-                        variant="secondary"
-                        className="flex items-center gap-1 text-[0.7rem]"
-                      >
-                        <span
-                          className="h-2 w-2 rounded-full"
-                          style={{
-                            backgroundColor:
-                              categoryInfo?.color ?? "currentColor",
-                          }}
-                        />
-                        {categoryLabel}
-                      </Badge>
-                      <Badge
-                        variant="secondary"
-                        className="flex items-center gap-1 text-[0.7rem]"
-                      >
-                        {priorityIcons[item.priority]}
-                        {priorityLabels[item.priority]}
-                      </Badge>
-                      <span className="text-muted-foreground">
-                        {item.estimated_hours
-                          ? `${item.estimated_hours}h`
-                          : "No estimate"}
-                      </span>
-                    </div>
-                    {item.recurrence_type !== "none" && (
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {recurrenceLabelMap[item.recurrence_type]} every{" "}
-                        {item.recurrence_interval} • Next{" "}
-                        {item.recurrence_next_occurrence
-                          ? formatDateLabel(item.recurrence_next_occurrence)
-                          : "not scheduled"}
+          prioritizedItems.length ? (
+            <div className="space-y-5">
+              {displayGroups
+                .filter((group) => group.items.length > 0)
+                .map((group, groupIndex) => (
+                  <div key={`${group.label || "group"}-${groupIndex}`}>
+                    {group.label && (
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {group.label}
                       </p>
                     )}
-                    <div className="mt-3 flex items-center gap-3">
-                      <Select
-                        value={item.recurrence_type}
-                        onValueChange={(value) =>
-                          updateItemRecurrence(item.id, {
-                            type: value as RecurrenceType,
-                            interval: item.recurrence_interval || 1,
-                          })
-                        }
-                      >
-                        <SelectTrigger className="h-8 flex-1 capitalize">
-                          <SelectValue placeholder="Recurrence" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {recurrenceOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {item.recurrence_type !== "none" && (
-                        <Input
-                          type="number"
-                          min={1}
-                          defaultValue={item.recurrence_interval || 1}
-                          className="h-8 w-16"
-                          onBlur={(event) => {
-                            const nextValue = Number.parseInt(
-                              event.target.value,
-                              10,
-                            );
-                            if (
-                              Number.isNaN(nextValue) ||
-                              nextValue < 1 ||
-                              nextValue === item.recurrence_interval
-                            ) {
-                              return;
-                            }
-                            void updateItemRecurrence(item.id, {
-                              type: item.recurrence_type,
-                              interval: nextValue,
-                            });
-                          }}
-                        />
-                      )}
-                      <EditableHoursField
-                        itemId={item.id}
-                        initialValue={item.estimated_hours ?? null}
-                        onSave={updateItemHours}
-                        showIcon={false}
-                        inputClassName="h-8 w-20"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteItem(item.id)}
-                        className="ml-auto text-muted-foreground hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Delete item</span>
-                      </Button>
+                    <div className="space-y-3">
+                      {group.items.map((item) => {
+                        const categoryInfo = categoryMap.get(item.category);
+                        const categoryLabel =
+                          categoryInfo?.label ?? item.category;
+
+                        return (
+                          <div
+                            key={item.id}
+                            className="rounded-2xl border bg-card/50 p-4 shadow-sm backdrop-blur"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p
+                                  className={cn(
+                                    "text-base font-semibold leading-tight",
+                                    item.completed &&
+                                      "text-muted-foreground line-through",
+                                  )}
+                                >
+                                  {item.title}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {formatAddedDescription(item.created_at)}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => toggleItemCompletion(item)}
+                                className="flex h-8 w-8 items-center justify-center rounded-full border text-muted-foreground transition hover:border-primary hover:text-primary"
+                                aria-pressed={item.completed}
+                              >
+                                {item.completed ? (
+                                  <CheckCircle2 className="h-5 w-5 text-primary" />
+                                ) : (
+                                  <Circle className="h-5 w-5" />
+                                )}
+                              </button>
+                            </div>
+                            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                              <Badge
+                                variant="secondary"
+                                className="flex items-center gap-1 text-[0.7rem]"
+                              >
+                                <span
+                                  className="h-2 w-2 rounded-full"
+                                  style={{
+                                    backgroundColor:
+                                      categoryInfo?.color ?? "currentColor",
+                                  }}
+                                />
+                                {categoryLabel}
+                              </Badge>
+                              <Badge
+                                variant="secondary"
+                                className="flex items-center gap-1 text-[0.7rem]"
+                              >
+                                {priorityIcons[item.priority]}
+                                {priorityLabels[item.priority]}
+                              </Badge>
+                              <span className="text-muted-foreground">
+                                {item.estimated_hours
+                                  ? `${item.estimated_hours}h`
+                                  : "No estimate"}
+                              </span>
+                            </div>
+                            {item.recurrence_type !== "none" && (
+                              <p className="mt-2 text-xs text-muted-foreground">
+                                {recurrenceLabelMap[item.recurrence_type]} every{" "}
+                                {item.recurrence_interval} • Next{" "}
+                                {item.recurrence_next_occurrence
+                                  ? formatDateLabel(
+                                      item.recurrence_next_occurrence,
+                                    )
+                                  : "not scheduled"}
+                              </p>
+                            )}
+                            <div className="mt-3 flex items-center gap-3">
+                              <Select
+                                value={item.recurrence_type}
+                                onValueChange={(value) =>
+                                  updateItemRecurrence(item.id, {
+                                    type: value as RecurrenceType,
+                                    interval: item.recurrence_interval || 1,
+                                  })
+                                }
+                              >
+                                <SelectTrigger className="h-8 flex-1 capitalize">
+                                  <SelectValue placeholder="Recurrence" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {recurrenceOptions.map((option) => (
+                                    <SelectItem
+                                      key={option.value}
+                                      value={option.value}
+                                    >
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {item.recurrence_type !== "none" && (
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  defaultValue={item.recurrence_interval || 1}
+                                  className="h-8 w-16"
+                                  onBlur={(event) => {
+                                    const nextValue = Number.parseInt(
+                                      event.target.value,
+                                      10,
+                                    );
+                                    if (
+                                      Number.isNaN(nextValue) ||
+                                      nextValue < 1 ||
+                                      nextValue === item.recurrence_interval
+                                    ) {
+                                      return;
+                                    }
+                                    void updateItemRecurrence(item.id, {
+                                      type: item.recurrence_type,
+                                      interval: nextValue,
+                                    });
+                                  }}
+                                />
+                              )}
+                              <EditableHoursField
+                                itemId={item.id}
+                                initialValue={item.estimated_hours ?? null}
+                                onSave={updateItemHours}
+                                showIcon={false}
+                                inputClassName="h-8 w-20"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => deleteItem(item.id)}
+                                className="ml-auto text-muted-foreground hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                <span className="sr-only">Delete item</span>
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                );
-              })}
+                ))}
             </div>
           ) : (
             <div className="rounded-lg border bg-card/40">
@@ -1098,7 +1169,7 @@ export function UnifiedList() {
         ) : (
           <DataTable
             columns={columns}
-            data={sortedItems}
+            data={prioritizedItems}
             groups={displayGroups.map((group) => ({
               label: group.label,
               items: group.items,
