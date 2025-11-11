@@ -134,10 +134,10 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
-  --ambient-1: oklch(0.34 0.058 270 / 0.24);
-  --ambient-2: oklch(0.28 0.05 210 / 0.26);
-  --ambient-3: oklch(0.24 0.048 330 / 0.22);
-  --ambient-4: oklch(0.28 0.054 35 / 0.2);
+  --ambient-1: oklch(0.34 0.058 270 / 0.42);
+  --ambient-2: oklch(0.28 0.05 210 / 0.4);
+  --ambient-3: oklch(0.24 0.048 330 / 0.36);
+  --ambient-4: oklch(0.28 0.054 35 / 0.34);
 }
 
 @layer base {
