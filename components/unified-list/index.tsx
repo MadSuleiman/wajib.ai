@@ -43,6 +43,10 @@ const getDerivedStatus = (item: ListItem, now: number): DerivedStatus => {
     return item.completed ? "completed" : "active";
   }
 
+  if (!item.recurrence_last_completed) {
+    return "active";
+  }
+
   const nextOccurrence = getTimeValue(item.recurrence_next_occurrence);
   if (!nextOccurrence) return "active";
 
