@@ -1,13 +1,9 @@
-import { useMemo, type ReactNode } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { CheckCircle2, Circle, Trash2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import {
-  priorityIcons,
-  priorityLabels,
-  formatDateLabel,
-} from "@/components/list-utils";
+import { priorityIcons, priorityLabels } from "@/components/list-utils";
 import type { ListItem, RecurrenceType, TaskPriority } from "@/types";
 import {
   DataTable,
@@ -28,9 +24,14 @@ import {
 import { EditableHoursField } from "@/components/editable-hours-field";
 import { recurrenceLabelMap, recurrenceOptions } from "./constants";
 import type { CategoryOption, DerivedStatus, ItemGroup } from "./types";
+import {
+  formatLocalDateTime,
+  formatTimeZoneDisplay,
+  getLocalTimeZone,
+} from "@/lib/timezone";
 
-const formatAddedDescription = (createdAt: string) => {
-  const absolute = formatDateLabel(createdAt);
+const formatAddedDescription = (createdAt: string, timeZone: string) => {
+  const absolute = formatLocalDateTime(createdAt, timeZone);
   const relative = formatDistanceToNow(new Date(createdAt), {
     addSuffix: true,
   });
@@ -80,11 +81,28 @@ export function ItemsView({
   tableSortState,
   onTableSortChange,
 }: ItemsViewProps) {
+  const userTimeZone = useMemo(() => getLocalTimeZone(), []);
+  const timeZoneDisplay = useMemo(
+    () => formatTimeZoneDisplay(userTimeZone),
+    [userTimeZone],
+  );
+  const formatAdded = useCallback(
+    (value: string) => formatAddedDescription(value, userTimeZone),
+    [userTimeZone],
+  );
+  const formatNextOccurrence = useCallback(
+    (value: string | null) =>
+      value ? formatLocalDateTime(value, userTimeZone) : "Not scheduled",
+    [userTimeZone],
+  );
   return (
     <div className="space-y-4">
       {isMobile && (
         <p className="text-sm text-muted-foreground">{summaryText}</p>
       )}
+      <p className="text-xs text-muted-foreground">
+        Times shown in {timeZoneDisplay}
+      </p>
       {isMobile ? (
         prioritizedItems.length ? (
           <MobileList
@@ -95,6 +113,8 @@ export function ItemsView({
             updateItemRecurrence={updateItemRecurrence}
             updateItemHours={updateItemHours}
             deleteItem={deleteItem}
+            formatAdded={formatAdded}
+            formatNextOccurrence={formatNextOccurrence}
           />
         ) : (
           <div className="rounded-lg border bg-card/40">
@@ -116,6 +136,8 @@ export function ItemsView({
           emptyState={emptyStateContent}
           sortState={tableSortState}
           onSortChange={onTableSortChange}
+          formatAdded={formatAdded}
+          formatNextOccurrence={formatNextOccurrence}
         />
       )}
     </div>
@@ -142,6 +164,8 @@ type DesktopTableProps = {
   emptyState: React.ReactNode;
   sortState?: DataTableSortState;
   onSortChange: (nextSort: DataTableSortState) => void;
+  formatAdded: (value: string) => string;
+  formatNextOccurrence: (value: string | null) => string;
 };
 
 function DesktopTable({
@@ -158,6 +182,8 @@ function DesktopTable({
   emptyState,
   sortState,
   onSortChange,
+  formatAdded,
+  formatNextOccurrence,
 }: DesktopTableProps) {
   const columns = useMemo<DataTableColumn<ListItem>[]>(() => {
     return [
@@ -192,7 +218,7 @@ function DesktopTable({
                   {item.title}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {formatAddedDescription(item.created_at)}
+                  {formatAdded(item.created_at)}
                 </span>
               </div>
             </div>
@@ -270,9 +296,7 @@ function DesktopTable({
             {item.recurrence_type !== "none" && (
               <p className="text-xs text-muted-foreground">
                 Next:{" "}
-                {item.recurrence_next_occurrence
-                  ? formatDateLabel(item.recurrence_next_occurrence)
-                  : "Not scheduled"}
+                {formatNextOccurrence(item.recurrence_next_occurrence)}
               </p>
             )}
           </div>
@@ -323,7 +347,7 @@ function DesktopTable({
         sortable: true,
         cell: (item) => (
           <span className="text-sm text-muted-foreground">
-            {formatAddedDescription(item.created_at)}
+            {formatAdded(item.created_at)}
           </span>
         ),
       },
@@ -350,6 +374,8 @@ function DesktopTable({
     categoryOptions,
     deleteItem,
     derivedStatuses,
+    formatAdded,
+    formatNextOccurrence,
     toggleItemCompletion,
     updateItemCategory,
     updateItemHours,
@@ -380,6 +406,8 @@ type MobileListProps = {
   ) => Promise<boolean>;
   updateItemHours: (itemId: string, hours: string) => Promise<boolean>;
   deleteItem: (itemId: string) => Promise<boolean>;
+  formatAdded: (value: string) => string;
+  formatNextOccurrence: (value: string | null) => string;
 };
 
 function MobileList({
@@ -390,6 +418,8 @@ function MobileList({
   updateItemRecurrence,
   updateItemHours,
   deleteItem,
+  formatAdded,
+  formatNextOccurrence,
 }: MobileListProps) {
   return (
     <div className="space-y-5">
@@ -425,7 +455,7 @@ function MobileList({
                           {item.title}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {formatAddedDescription(item.created_at)}
+                          {formatAdded(item.created_at)}
                         </p>
                       </div>
                       <button
@@ -472,9 +502,7 @@ function MobileList({
                       <p className="mt-2 text-xs text-muted-foreground">
                         {recurrenceLabelMap[item.recurrence_type]} every{" "}
                         {item.recurrence_interval} • Next{" "}
-                        {item.recurrence_next_occurrence
-                          ? formatDateLabel(item.recurrence_next_occurrence)
-                          : "not scheduled"}
+                        {formatNextOccurrence(item.recurrence_next_occurrence)}
                       </p>
                     )}
                     <div className="mt-3 flex items-center gap-3">
