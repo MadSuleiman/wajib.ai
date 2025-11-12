@@ -88,10 +88,7 @@ export function UnifiedList() {
     isLoading,
     addItem,
     toggleItemCompletion,
-    updateItemPriority,
-    updateItemHours,
-    updateItemCategory,
-    updateItemRecurrence,
+    updateItemDetails,
     deleteItem,
   } = supabaseContext.items;
   const categories: Category[] = supabaseContext.categories;
@@ -280,29 +277,27 @@ export function UnifiedList() {
         defaultCategory={fallbackCategory}
       />
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <InsightsGrid
-          categoryChartData={categoryChartData}
-          recurringBreakdownData={recurringBreakdownData}
-          summaryText={summaryText}
-          activeCount={activeCount}
-          completedCount={completedCount}
-          categoryCount={categoryOptions.length}
-          recurringCount={recurringCount}
-        />
-        <FiltersCard
-          statusFilter={statusFilter}
-          onStatusChange={setStatusFilter}
-          categoryFilter={categoryFilter}
-          onCategoryChange={setCategoryFilter}
-          categoryOptions={categoryOptions}
-          groupMode={groupMode}
-          onGroupModeChange={setGroupMode}
-          sortValue={sortValue}
-          onSortValueChange={setSortValue}
-          onReset={handleResetFilters}
-        />
-      </div>
+      <InsightsGrid
+        categoryChartData={categoryChartData}
+        recurringBreakdownData={recurringBreakdownData}
+        summaryText={summaryText}
+        activeCount={activeCount}
+        completedCount={completedCount}
+        categoryCount={categoryOptions.length}
+        recurringCount={recurringCount}
+      />
+      <FiltersCard
+        statusFilter={statusFilter}
+        onStatusChange={setStatusFilter}
+        categoryFilter={categoryFilter}
+        onCategoryChange={setCategoryFilter}
+        categoryOptions={categoryOptions}
+        groupMode={groupMode}
+        onGroupModeChange={setGroupMode}
+        sortValue={sortValue}
+        onSortValueChange={setSortValue}
+        onReset={handleResetFilters}
+      />
 
       <ItemsView
         isMobile={isMobile}
@@ -312,10 +307,7 @@ export function UnifiedList() {
         categoryMap={categoryMap}
         categoryOptions={categoryOptions}
         derivedStatuses={derivedStatuses}
-        updateItemCategory={updateItemCategory}
-        updateItemRecurrence={updateItemRecurrence}
-        updateItemPriority={updateItemPriority}
-        updateItemHours={updateItemHours}
+        updateItemDetails={updateItemDetails}
         toggleItemCompletion={toggleItemCompletion}
         deleteItem={deleteItem}
         emptyStateContent={emptyStateContent}

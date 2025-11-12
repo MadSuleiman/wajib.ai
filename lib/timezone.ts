@@ -20,9 +20,10 @@ export const formatTimeZoneDisplay = (timeZone: string) => {
   };
   let offsetLabel: string | null = null;
   try {
-    offsetLabel = new Intl.DateTimeFormat(undefined, partsFormatterOptions)
-      .formatToParts(new Date())
-      .find((part) => part.type === "timeZoneName")?.value ?? null;
+    offsetLabel =
+      new Intl.DateTimeFormat(undefined, partsFormatterOptions)
+        .formatToParts(new Date())
+        .find((part) => part.type === "timeZoneName")?.value ?? null;
   } catch {
     offsetLabel = null;
   }
@@ -34,9 +35,7 @@ export const formatTimeZoneDisplay = (timeZone: string) => {
       });
       const displayName = displayNames.of(timeZone);
       if (displayName) {
-        return offsetLabel
-          ? `${displayName} (${offsetLabel})`
-          : displayName;
+        return offsetLabel ? `${displayName} (${offsetLabel})` : displayName;
       }
     } catch {
       // no-op; fall back to offset-based label

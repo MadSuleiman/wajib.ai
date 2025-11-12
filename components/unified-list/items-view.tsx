@@ -1,10 +1,10 @@
-import { useCallback, useMemo, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { CheckCircle2, Circle, Trash2 } from "lucide-react";
+import { CheckCircle2, Circle, Pencil, Trash2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { priorityIcons, priorityLabels } from "@/components/list-utils";
-import type { ListItem, RecurrenceType, TaskPriority } from "@/types";
+import type { ListItem, TaskPriority } from "@/types";
 import {
   DataTable,
   type DataTableColumn,
@@ -12,23 +12,21 @@ import {
 } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-import { EditableHoursField } from "@/components/editable-hours-field";
-import { recurrenceLabelMap, recurrenceOptions } from "./constants";
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { recurrenceLabelMap } from "./constants";
 import type { CategoryOption, DerivedStatus, ItemGroup } from "./types";
 import {
   formatLocalDateTime,
   formatTimeZoneDisplay,
   getLocalTimeZone,
 } from "@/lib/timezone";
+import { TaskEditor } from "./task-editor";
 
 const formatAddedDescription = (createdAt: string, timeZone: string) => {
   const absolute = formatLocalDateTime(createdAt, timeZone);
@@ -46,16 +44,16 @@ type ItemsViewProps = {
   categoryMap: Map<string, CategoryOption>;
   categoryOptions: CategoryOption[];
   derivedStatuses: Map<string, DerivedStatus>;
-  updateItemCategory: (itemId: string, category: string) => Promise<boolean>;
-  updateItemRecurrence: (
+  updateItemDetails: (
     itemId: string,
-    recurrence: { type: RecurrenceType; interval: number },
+    updates: {
+      title?: string;
+      priority?: TaskPriority;
+      hours?: string | null;
+      category?: string;
+      recurrence?: { type: ListItem["recurrence_type"]; interval: number };
+    },
   ) => Promise<boolean>;
-  updateItemPriority: (
-    itemId: string,
-    priority: TaskPriority,
-  ) => Promise<boolean>;
-  updateItemHours: (itemId: string, hours: string) => Promise<boolean>;
   toggleItemCompletion: (item: ListItem) => Promise<boolean>;
   deleteItem: (itemId: string) => Promise<boolean>;
   emptyStateContent: ReactNode;
@@ -71,10 +69,7 @@ export function ItemsView({
   categoryMap,
   categoryOptions,
   derivedStatuses,
-  updateItemCategory,
-  updateItemRecurrence,
-  updateItemPriority,
-  updateItemHours,
+  updateItemDetails,
   toggleItemCompletion,
   deleteItem,
   emptyStateContent,
@@ -95,6 +90,22 @@ export function ItemsView({
       value ? formatLocalDateTime(value, userTimeZone) : "Not scheduled",
     [userTimeZone],
   );
+
+  const [editorTask, setEditorTask] = useState<ListItem | null>(null);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+
+  const handleOpenEditor = useCallback((item: ListItem) => {
+    setEditorTask(item);
+    setIsEditorOpen(true);
+  }, []);
+
+  const handleEditorOpenChange = useCallback((open: boolean) => {
+    setIsEditorOpen(open);
+    if (!open) {
+      setEditorTask(null);
+    }
+  }, []);
+
   return (
     <div className="space-y-4">
       {isMobile && (
@@ -110,11 +121,10 @@ export function ItemsView({
             categoryMap={categoryMap}
             derivedStatuses={derivedStatuses}
             toggleItemCompletion={toggleItemCompletion}
-            updateItemRecurrence={updateItemRecurrence}
-            updateItemHours={updateItemHours}
             deleteItem={deleteItem}
             formatAdded={formatAdded}
             formatNextOccurrence={formatNextOccurrence}
+            onEditTask={handleOpenEditor}
           />
         ) : (
           <div className="rounded-lg border bg-card/40">
@@ -125,12 +135,8 @@ export function ItemsView({
         <DesktopTable
           items={prioritizedItems}
           groups={displayGroups}
-          categoryOptions={categoryOptions}
+          categoryMap={categoryMap}
           derivedStatuses={derivedStatuses}
-          updateItemCategory={updateItemCategory}
-          updateItemRecurrence={updateItemRecurrence}
-          updateItemPriority={updateItemPriority}
-          updateItemHours={updateItemHours}
           toggleItemCompletion={toggleItemCompletion}
           deleteItem={deleteItem}
           emptyState={emptyStateContent}
@@ -138,8 +144,18 @@ export function ItemsView({
           onSortChange={onTableSortChange}
           formatAdded={formatAdded}
           formatNextOccurrence={formatNextOccurrence}
+          onEditTask={handleOpenEditor}
         />
       )}
+
+      <TaskEditor
+        isOpen={isEditorOpen}
+        onOpenChange={handleEditorOpenChange}
+        item={editorTask}
+        categoryOptions={categoryOptions}
+        onSave={updateItemDetails}
+        isMobile={isMobile}
+      />
     </div>
   );
 }
@@ -147,18 +163,8 @@ export function ItemsView({
 type DesktopTableProps = {
   items: ListItem[];
   groups: ItemGroup[];
-  categoryOptions: CategoryOption[];
+  categoryMap: Map<string, CategoryOption>;
   derivedStatuses: Map<string, DerivedStatus>;
-  updateItemCategory: (itemId: string, category: string) => Promise<boolean>;
-  updateItemRecurrence: (
-    itemId: string,
-    recurrence: { type: RecurrenceType; interval: number },
-  ) => Promise<boolean>;
-  updateItemPriority: (
-    itemId: string,
-    priority: TaskPriority,
-  ) => Promise<boolean>;
-  updateItemHours: (itemId: string, hours: string) => Promise<boolean>;
   toggleItemCompletion: (item: ListItem) => Promise<boolean>;
   deleteItem: (itemId: string) => Promise<boolean>;
   emptyState: React.ReactNode;
@@ -166,17 +172,14 @@ type DesktopTableProps = {
   onSortChange: (nextSort: DataTableSortState) => void;
   formatAdded: (value: string) => string;
   formatNextOccurrence: (value: string | null) => string;
+  onEditTask: (item: ListItem) => void;
 };
 
 function DesktopTable({
   items,
   groups,
-  categoryOptions,
+  categoryMap,
   derivedStatuses,
-  updateItemCategory,
-  updateItemRecurrence,
-  updateItemPriority,
-  updateItemHours,
   toggleItemCompletion,
   deleteItem,
   emptyState,
@@ -184,6 +187,7 @@ function DesktopTable({
   onSortChange,
   formatAdded,
   formatNextOccurrence,
+  onEditTask,
 }: DesktopTableProps) {
   const columns = useMemo<DataTableColumn<ListItem>[]>(() => {
     return [
@@ -228,77 +232,37 @@ function DesktopTable({
       {
         id: "category",
         header: "Category",
-        cell: (item) => (
-          <Select
-            value={item.category}
-            onValueChange={(value) => updateItemCategory(item.id, value)}
-          >
-            <SelectTrigger className="w-[150px] capitalize">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              {categoryOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ),
+        cell: (item) => {
+          const categoryInfo = categoryMap.get(item.category);
+          return (
+            <div className="flex items-center gap-2 text-sm capitalize">
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{
+                  backgroundColor:
+                    categoryInfo?.color ?? "var(--muted-foreground)",
+                }}
+              />
+              <span>{categoryInfo?.label ?? item.category}</span>
+            </div>
+          );
+        },
       },
       {
         id: "recurrence",
         header: "Recurrence",
         cell: (item) => (
-          <div className="flex flex-col gap-1">
-            <Select
-              value={item.recurrence_type}
-              onValueChange={(value) =>
-                updateItemRecurrence(item.id, {
-                  type: value as RecurrenceType,
-                  interval: item.recurrence_interval || 1,
-                })
-              }
-            >
-              <SelectTrigger className="h-8 w-[140px] capitalize">
-                <SelectValue placeholder="Recurrence" />
-              </SelectTrigger>
-              <SelectContent>
-                {recurrenceOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              key={`${item.id}-${item.recurrence_interval}-${item.recurrence_type}`}
-              type="number"
-              min={1}
-              defaultValue={item.recurrence_interval || 1}
-              disabled={item.recurrence_type === "none"}
-              className="h-8 w-[100px]"
-              onBlur={(event) => {
-                const nextValue = Number.parseInt(event.target.value, 10);
-                if (
-                  Number.isNaN(nextValue) ||
-                  nextValue < 1 ||
-                  nextValue === item.recurrence_interval
-                ) {
-                  return;
-                }
-                void updateItemRecurrence(item.id, {
-                  type: item.recurrence_type,
-                  interval: nextValue,
-                });
-              }}
-            />
-            {item.recurrence_type !== "none" && (
-              <p className="text-xs text-muted-foreground">
-                Next:{" "}
-                {formatNextOccurrence(item.recurrence_next_occurrence)}
-              </p>
-            )}
+          <div className="flex flex-col text-sm">
+            <span className="font-medium">
+              {item.recurrence_type === "none"
+                ? "One-time"
+                : `${recurrenceLabelMap[item.recurrence_type]} · every ${item.recurrence_interval}`}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {item.recurrence_type === "none"
+                ? "Doesn't repeat"
+                : `Next: ${formatNextOccurrence(item.recurrence_next_occurrence)}`}
+            </span>
           </div>
         ),
       },
@@ -307,26 +271,13 @@ function DesktopTable({
         header: "Priority",
         sortable: true,
         cell: (item) => (
-          <Select
-            value={item.priority}
-            onValueChange={(value: TaskPriority) =>
-              updateItemPriority(item.id, value)
-            }
+          <Badge
+            variant="secondary"
+            className="flex items-center gap-2 capitalize"
           >
-            <SelectTrigger className="w-[150px] capitalize">
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.keys(priorityLabels) as TaskPriority[]).map((option) => (
-                <SelectItem key={option} value={option}>
-                  <div className="flex items-center gap-2">
-                    {priorityIcons[option]}
-                    <span>{priorityLabels[option]}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            {priorityIcons[item.priority]}
+            {priorityLabels[item.priority]}
+          </Badge>
         ),
       },
       {
@@ -334,11 +285,11 @@ function DesktopTable({
         header: "Hours",
         sortable: true,
         cell: (item) => (
-          <EditableHoursField
-            itemId={item.id}
-            initialValue={item.estimated_hours ?? null}
-            onSave={updateItemHours}
-          />
+          <span className="text-sm font-medium">
+            {typeof item.estimated_hours === "number"
+              ? `${item.estimated_hours}h`
+              : "—"}
+          </span>
         ),
       },
       {
@@ -359,6 +310,15 @@ function DesktopTable({
             <Button
               type="button"
               variant="ghost"
+              size="sm"
+              onClick={() => onEditTask(item)}
+              className="text-muted-foreground hover:text-primary"
+            >
+              <Pencil className="mr-2 h-3.5 w-3.5" /> Edit
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
               size="icon"
               onClick={() => deleteItem(item.id)}
               className="text-muted-foreground hover:text-destructive"
@@ -371,18 +331,14 @@ function DesktopTable({
       },
     ];
   }, [
-    categoryOptions,
+    categoryMap,
     deleteItem,
     derivedStatuses,
     formatAdded,
     formatNextOccurrence,
+    onEditTask,
     toggleItemCompletion,
-    updateItemCategory,
-    updateItemHours,
-    updateItemPriority,
-    updateItemRecurrence,
   ]);
-
   return (
     <DataTable
       columns={columns}
@@ -391,6 +347,40 @@ function DesktopTable({
       emptyState={emptyState}
       sortState={sortState}
       onSortChange={onSortChange}
+      rowWrapper={(row, item, rowKey) => {
+        const isCompleted =
+          (derivedStatuses.get(item.id) ?? "active") === "completed";
+        return (
+          <ContextMenu key={rowKey}>
+            <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
+            <ContextMenuContent className="w-48">
+              <ContextMenuItem
+                onSelect={() => {
+                  void toggleItemCompletion(item);
+                }}
+              >
+                {isCompleted ? "Mark as active" : "Mark as complete"}
+              </ContextMenuItem>
+              <ContextMenuItem
+                onSelect={() => {
+                  onEditTask(item);
+                }}
+              >
+                Edit task
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                className="text-destructive focus:text-destructive"
+                onSelect={() => {
+                  void deleteItem(item.id);
+                }}
+              >
+                Delete task
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
+        );
+      }}
     />
   );
 }
@@ -400,14 +390,10 @@ type MobileListProps = {
   categoryMap: Map<string, CategoryOption>;
   derivedStatuses: Map<string, DerivedStatus>;
   toggleItemCompletion: (item: ListItem) => Promise<boolean>;
-  updateItemRecurrence: (
-    itemId: string,
-    recurrence: { type: RecurrenceType; interval: number },
-  ) => Promise<boolean>;
-  updateItemHours: (itemId: string, hours: string) => Promise<boolean>;
   deleteItem: (itemId: string) => Promise<boolean>;
   formatAdded: (value: string) => string;
   formatNextOccurrence: (value: string | null) => string;
+  onEditTask: (item: ListItem) => void;
 };
 
 function MobileList({
@@ -415,11 +401,10 @@ function MobileList({
   categoryMap,
   derivedStatuses,
   toggleItemCompletion,
-  updateItemRecurrence,
-  updateItemHours,
   deleteItem,
   formatAdded,
   formatNextOccurrence,
+  onEditTask,
 }: MobileListProps) {
   return (
     <div className="space-y-5">
@@ -505,68 +490,24 @@ function MobileList({
                         {formatNextOccurrence(item.recurrence_next_occurrence)}
                       </p>
                     )}
-                    <div className="mt-3 flex items-center gap-3">
-                      <Select
-                        value={item.recurrence_type}
-                        onValueChange={(value) =>
-                          updateItemRecurrence(item.id, {
-                            type: value as RecurrenceType,
-                            interval: item.recurrence_interval || 1,
-                          })
-                        }
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onEditTask(item)}
+                        className="flex items-center gap-2"
                       >
-                        <SelectTrigger className="h-8 flex-1 capitalize">
-                          <SelectValue placeholder="Recurrence" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {recurrenceOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {item.recurrence_type !== "none" && (
-                        <Input
-                          type="number"
-                          min={1}
-                          defaultValue={item.recurrence_interval || 1}
-                          className="h-8 w-16"
-                          onBlur={(event) => {
-                            const nextValue = Number.parseInt(
-                              event.target.value,
-                              10,
-                            );
-                            if (
-                              Number.isNaN(nextValue) ||
-                              nextValue < 1 ||
-                              nextValue === item.recurrence_interval
-                            ) {
-                              return;
-                            }
-                            void updateItemRecurrence(item.id, {
-                              type: item.recurrence_type,
-                              interval: nextValue,
-                            });
-                          }}
-                        />
-                      )}
-                      <EditableHoursField
-                        itemId={item.id}
-                        initialValue={item.estimated_hours ?? null}
-                        onSave={updateItemHours}
-                        showIcon={false}
-                        inputClassName="h-8 w-20"
-                      />
+                        <Pencil className="h-4 w-4" /> Edit
+                      </Button>
                       <Button
                         type="button"
                         variant="ghost"
-                        size="icon"
+                        size="sm"
                         onClick={() => deleteItem(item.id)}
-                        className="ml-auto text-muted-foreground hover:text-destructive"
+                        className="text-muted-foreground hover:text-destructive"
                       >
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Delete item</span>
+                        <Trash2 className="mr-1 h-4 w-4" /> Delete
                       </Button>
                     </div>
                   </div>

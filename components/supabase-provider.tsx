@@ -49,6 +49,16 @@ interface ListStore {
     itemId: string,
     recurrence: { type: RecurrenceType; interval: number },
   ) => Promise<boolean>;
+  updateItemDetails: (
+    itemId: string,
+    updates: {
+      title?: string;
+      priority?: TaskPriority;
+      hours?: string | null;
+      category?: string;
+      recurrence?: { type: RecurrenceType; interval: number };
+    },
+  ) => Promise<boolean>;
   deleteItem: (itemId: string) => Promise<boolean>;
 }
 
@@ -213,18 +223,21 @@ export function SupabaseProvider({
           const { start: todayStart, end: todayEnd } =
             getLocalDayBoundaries(now);
 
-          const { data: existingLogsRaw, error: existingLogError } = await supabase
-            .from("recurrence_logs")
-            .select("completed_at")
-            .eq("list_item_id", item.id)
-            .gte("completed_at", todayStart.toISOString())
-            .lt("completed_at", todayEnd.toISOString())
-            .order("completed_at", { ascending: false })
-            .limit(1);
+          const { data: existingLogsRaw, error: existingLogError } =
+            await supabase
+              .from("recurrence_logs")
+              .select("completed_at")
+              .eq("list_item_id", item.id)
+              .gte("completed_at", todayStart.toISOString())
+              .lt("completed_at", todayEnd.toISOString())
+              .order("completed_at", { ascending: false })
+              .limit(1);
 
           if (existingLogError) throw existingLogError;
 
-          const existingLogs = existingLogsRaw as RecurrenceLogCompletion[] | null;
+          const existingLogs = existingLogsRaw as
+            | RecurrenceLogCompletion[]
+            | null;
           let completedAtIso = existingLogs?.[0]?.completed_at ?? null;
 
           if (!completedAtIso) {
@@ -415,12 +428,12 @@ export function SupabaseProvider({
           normalizedType === "none"
             ? null
             : referenceDate
-                ? calculateNextOccurrence(
-                    normalizedType,
-                    normalizedInterval,
-                    referenceDate,
-                  )
-                : toLocalMidnight(new Date());
+              ? calculateNextOccurrence(
+                  normalizedType,
+                  normalizedInterval,
+                  referenceDate,
+                )
+              : toLocalMidnight(new Date());
 
         const updates: Record<string, unknown> = {
           recurrence_type: normalizedType,
@@ -452,6 +465,119 @@ export function SupabaseProvider({
         return true;
       } catch (error: unknown) {
         toast.error("Failed to update recurrence", {
+          description:
+            getErrorMessage(error) || "Something went wrong. Please try again.",
+        });
+        return false;
+      }
+    },
+    [calculateNextOccurrence, items, refreshItem, supabase],
+  );
+
+  const updateItemDetails: ListStore["updateItemDetails"] = useCallback(
+    async (itemId, updates) => {
+      try {
+        const existingItem = items.find((current) => current.id === itemId);
+        if (!existingItem) {
+          toast.error("Item not found");
+          return false;
+        }
+
+        const payload: Record<string, unknown> = {};
+        let hasChanges = false;
+
+        if (typeof updates.title === "string") {
+          const trimmedTitle = updates.title.trim();
+          if (trimmedTitle && trimmedTitle !== existingItem.title) {
+            payload.title = trimmedTitle;
+            hasChanges = true;
+          }
+        }
+
+        if (updates.category) {
+          const normalizedCategory = updates.category.trim() || "task";
+          if (normalizedCategory !== existingItem.category) {
+            payload.category = normalizedCategory;
+            hasChanges = true;
+          }
+        }
+
+        if (updates.priority && updates.priority !== existingItem.priority) {
+          payload.priority = updates.priority;
+          hasChanges = true;
+        }
+
+        if (typeof updates.hours !== "undefined") {
+          const hoursValue =
+            updates.hours?.trim() === "" ? null : updates.hours;
+          const parsedHours =
+            hoursValue === null || typeof hoursValue === "undefined"
+              ? null
+              : Number.parseFloat(hoursValue);
+          if (parsedHours !== null && Number.isNaN(parsedHours)) {
+            toast.error("Invalid hours value");
+            return false;
+          }
+          if (parsedHours !== existingItem.estimated_hours) {
+            payload.estimated_hours = parsedHours;
+            hasChanges = true;
+          }
+        }
+
+        if (updates.recurrence) {
+          const normalizedType: RecurrenceType =
+            updates.recurrence.type ?? "none";
+          const normalizedInterval =
+            updates.recurrence.interval && updates.recurrence.interval > 0
+              ? Math.floor(updates.recurrence.interval)
+              : 1;
+
+          payload.recurrence_type = normalizedType;
+          payload.recurrence_interval = normalizedInterval;
+          hasChanges = true;
+
+          if (normalizedType === "none") {
+            payload.recurrence_last_completed = null;
+            payload.recurrence_next_occurrence = null;
+          } else {
+            const referenceDate = existingItem.recurrence_last_completed
+              ? new Date(existingItem.recurrence_last_completed)
+              : null;
+            const nextOccurrence = referenceDate
+              ? calculateNextOccurrence(
+                  normalizedType,
+                  normalizedInterval,
+                  referenceDate,
+                )
+              : toLocalMidnight(new Date());
+            payload.recurrence_next_occurrence = nextOccurrence
+              ? nextOccurrence.toISOString()
+              : null;
+            payload.completed = false;
+          }
+        }
+
+        if (!hasChanges) {
+          toast.info("No changes to save");
+          return true;
+        }
+
+        const { data, error } = await supabase
+          .from("list_items")
+          .update(payload as never)
+          .eq("id", itemId)
+          .select()
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          refreshItem(data as ListItem);
+        }
+
+        toast.success("Task updated");
+        return true;
+      } catch (error: unknown) {
+        toast.error("Failed to update task", {
           description:
             getErrorMessage(error) || "Something went wrong. Please try again.",
         });
@@ -601,6 +727,7 @@ export function SupabaseProvider({
         updateItemHours,
         updateItemCategory,
         updateItemRecurrence,
+        updateItemDetails,
         deleteItem,
       },
       categories,
@@ -614,6 +741,7 @@ export function SupabaseProvider({
       updateItemHours,
       updateItemCategory,
       updateItemRecurrence,
+      updateItemDetails,
       deleteItem,
       categories,
     ],

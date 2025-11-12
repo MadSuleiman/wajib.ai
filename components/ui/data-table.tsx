@@ -39,6 +39,11 @@ interface DataTableProps<T> {
   groups?: DataTableGroup<T>[];
   sortState?: DataTableSortState;
   onSortChange?: (state: DataTableSortState) => void;
+  rowWrapper?: (
+    row: React.ReactElement,
+    item: T,
+    rowKey: string,
+  ) => React.ReactNode;
 }
 
 export function DataTable<T>({
@@ -48,6 +53,7 @@ export function DataTable<T>({
   groups,
   sortState,
   onSortChange,
+  rowWrapper,
 }: DataTableProps<T>) {
   const [internalSort, setInternalSort] = React.useState<
     DataTableSortState | undefined
@@ -178,15 +184,28 @@ export function DataTable<T>({
                   </TableCell>
                 </TableRow>
               ) : null}
-              {group.items.map((item, itemIndex) => (
-                <TableRow key={(item as { id?: string }).id ?? itemIndex}>
-                  {columns.map((column) => (
-                    <TableCell key={column.id} className={column.cellClassName}>
-                      {column.cell(item)}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
+              {group.items.map((item, itemIndex) => {
+                const rowKey =
+                  (item as { id?: string }).id ?? `${groupIndex}-${itemIndex}`;
+                const baseRow = (
+                  <TableRow>
+                    {columns.map((column) => (
+                      <TableCell
+                        key={column.id}
+                        className={column.cellClassName}
+                      >
+                        {column.cell(item)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+
+                if (rowWrapper) {
+                  return rowWrapper(baseRow, item, String(rowKey));
+                }
+
+                return React.cloneElement(baseRow, { key: rowKey });
+              })}
             </React.Fragment>
           ))}
         </TableBody>
