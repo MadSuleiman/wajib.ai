@@ -1,7 +1,10 @@
 export type {
-  ListItemRow as ListItem,
-  ListItemInsert,
-  ListItemUpdate,
+  TaskRow,
+  RoutineRow,
+  TaskInsert,
+  RoutineInsert,
+  TaskUpdate,
+  RoutineUpdate,
   CategoryRow as Category,
   CategoryInsert,
   CategoryUpdate,
@@ -9,4 +12,7 @@ export type {
   RecurrenceType,
   ItemKind,
   SupabaseTableName,
+  ListItem,
 } from "./supabase";
+
+export { taskRowToListItem, routineRowToListItem } from "./supabase";

@@ -22,6 +22,7 @@ import type {
   RecurrenceType,
   TaskPriority,
 } from "@/types";
+import { routineRowToListItem, taskRowToListItem } from "@/types/supabase";
 
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
@@ -177,31 +178,50 @@ export function SupabaseProvider({
           normalizedRecurrenceType === "none"
             ? null
             : toLocalMidnight(new Date());
-        const { data, error } = await supabase
-          .from("list_items")
-          .insert([
-            {
-              title: trimmedTitle,
-              completed: false,
-              item_kind: itemKind,
-              priority,
-              estimated_hours: estimatedHours,
-              category: normalizedCategory,
-              user_id: user.id,
-              recurrence_type: normalizedRecurrenceType,
-              recurrence_interval: normalizedRecurrenceInterval,
-              recurrence_next_occurrence: nextOccurrence
-                ? nextOccurrence.toISOString()
-                : null,
-            },
-          ] as never)
-          .select()
-          .single();
+
+        const { data, error } =
+          normalizedRecurrenceType === "none"
+            ? await supabase
+                .from("tasks")
+                .insert([
+                  {
+                    title: trimmedTitle,
+                    completed: false,
+                    priority,
+                    estimated_hours: estimatedHours,
+                    category: normalizedCategory,
+                    user_id: user.id,
+                  },
+                ] as never)
+                .select()
+                .single()
+            : await supabase
+                .from("routines")
+                .insert([
+                  {
+                    title: trimmedTitle,
+                    priority,
+                    estimated_hours: estimatedHours,
+                    category: normalizedCategory,
+                    user_id: user.id,
+                    recurrence_type: normalizedRecurrenceType,
+                    recurrence_interval: normalizedRecurrenceInterval,
+                    recurrence_next_occurrence: nextOccurrence
+                      ? nextOccurrence.toISOString()
+                      : null,
+                  },
+                ] as never)
+                .select()
+                .single();
 
         if (error) throw error;
 
         if (data) {
-          refreshItem(data as ListItem);
+          const item =
+            itemKind === "task"
+              ? taskRowToListItem(data as never)
+              : routineRowToListItem(data as never);
+          refreshItem(item);
         }
 
         toast.success("Item added", {
@@ -224,16 +244,53 @@ export function SupabaseProvider({
   const toggleItemCompletion: ListStore["toggleItemCompletion"] = useCallback(
     async (item) => {
       if (item.recurrence_type && item.recurrence_type !== "none") {
+        // If the routine is currently considered "completed" (next occurrence in the future),
+        // toggling should restore it to active/due today instead of logging another completion.
+        const today = toLocalMidnight(new Date());
+        const nextDate = item.recurrence_next_occurrence
+          ? new Date(item.recurrence_next_occurrence)
+          : null;
+        const isCompleted = nextDate ? nextDate > today : false;
+
+        if (isCompleted) {
+          try {
+            const { data, error } = await supabase
+              .from("routines")
+              .update({
+                recurrence_next_occurrence: today.toISOString(),
+                recurrence_last_completed: null,
+              } as never)
+              .eq("id", item.id)
+              .select()
+              .single();
+
+            if (error) throw error;
+            if (data) {
+              refreshItem(routineRowToListItem(data as never));
+            }
+
+            toast.success("Routine marked as active");
+            return true;
+          } catch (error: unknown) {
+            toast.error("Failed to update routine", {
+              description:
+                getErrorMessage(error) ||
+                "Something went wrong. Please try again.",
+            });
+            return false;
+          }
+        }
+
         try {
           const { data, error } = await supabase.rpc("complete_routine", {
-            p_item_id: item.id,
+            p_routine_id: item.id,
             p_user_id: item.user_id,
           });
 
           if (error) throw error;
 
           if (data) {
-            refreshItem(data as ListItem);
+            refreshItem(routineRowToListItem(data as never));
           }
 
           toast.success("Recurring task logged", {
@@ -252,7 +309,7 @@ export function SupabaseProvider({
 
       try {
         const { data, error } = await supabase
-          .from("list_items")
+          .from("tasks")
           .update({ completed: !item.completed } as never)
           .eq("id", item.id)
           .select()
@@ -260,7 +317,7 @@ export function SupabaseProvider({
 
         if (error) throw error;
         if (data) {
-          refreshItem(data as ListItem);
+          refreshItem(taskRowToListItem(data as never));
         }
         return true;
       } catch (error: unknown) {
@@ -279,8 +336,13 @@ export function SupabaseProvider({
   const updateItemPriority: ListStore["updateItemPriority"] = useCallback(
     async (itemId, priority) => {
       try {
+        const targetTable =
+          items.find((it) => it.id === itemId)?.item_kind === "routine"
+            ? "routines"
+            : "tasks";
+
         const { data, error } = await supabase
-          .from("list_items")
+          .from(targetTable)
           .update({ priority } as never)
           .eq("id", itemId)
           .select()
@@ -288,7 +350,11 @@ export function SupabaseProvider({
 
         if (error) throw error;
         if (data) {
-          refreshItem(data as ListItem);
+          const updated =
+            targetTable === "tasks"
+              ? taskRowToListItem(data as never)
+              : routineRowToListItem(data as never);
+          refreshItem(updated);
         }
         toast.success("Priority updated");
         return true;
@@ -300,7 +366,7 @@ export function SupabaseProvider({
         return false;
       }
     },
-    [supabase, refreshItem],
+    [items, supabase, refreshItem],
   );
 
   const updateItemHours: ListStore["updateItemHours"] = useCallback(
@@ -313,8 +379,13 @@ export function SupabaseProvider({
           return false;
         }
 
+        const targetTable =
+          items.find((it) => it.id === itemId)?.item_kind === "routine"
+            ? "routines"
+            : "tasks";
+
         const { data, error } = await supabase
-          .from("list_items")
+          .from(targetTable)
           .update({ estimated_hours: parsedHours } as never)
           .eq("id", itemId)
           .select()
@@ -322,7 +393,11 @@ export function SupabaseProvider({
 
         if (error) throw error;
         if (data) {
-          refreshItem(data as ListItem);
+          const updated =
+            targetTable === "tasks"
+              ? taskRowToListItem(data as never)
+              : routineRowToListItem(data as never);
+          refreshItem(updated);
         }
         toast.success("Hours updated");
         return true;
@@ -334,15 +409,20 @@ export function SupabaseProvider({
         return false;
       }
     },
-    [supabase, refreshItem],
+    [items, supabase, refreshItem],
   );
 
   const updateItemCategory: ListStore["updateItemCategory"] = useCallback(
     async (itemId, category) => {
       try {
         const normalizedCategory = category.trim() || "task";
+        const targetTable =
+          items.find((it) => it.id === itemId)?.item_kind === "routine"
+            ? "routines"
+            : "tasks";
+
         const { data, error } = await supabase
-          .from("list_items")
+          .from(targetTable)
           .update({ category: normalizedCategory } as never)
           .eq("id", itemId)
           .select()
@@ -350,7 +430,11 @@ export function SupabaseProvider({
 
         if (error) throw error;
         if (data) {
-          refreshItem(data as ListItem);
+          const updated =
+            targetTable === "tasks"
+              ? taskRowToListItem(data as never)
+              : routineRowToListItem(data as never);
+          refreshItem(updated);
         }
         toast.success("Category updated");
         return true;
@@ -362,61 +446,145 @@ export function SupabaseProvider({
         return false;
       }
     },
-    [supabase, refreshItem],
+    [items, supabase, refreshItem],
   );
 
   const updateItemRecurrence: ListStore["updateItemRecurrence"] = useCallback(
     async (itemId, { type, interval }) => {
       try {
         const existingItem = items.find((current) => current.id === itemId);
-        const normalizedType: RecurrenceType = type ?? "none";
-        const normalizedInterval =
-          interval && interval > 0 ? Math.floor(interval) : 1;
-        const itemKind: ItemKind =
-          normalizedType === "none" ? "task" : "routine";
-        const referenceDate = existingItem?.recurrence_last_completed
-          ? new Date(existingItem.recurrence_last_completed)
-          : null;
-        const nextOccurrence =
-          normalizedType === "none"
-            ? null
-            : referenceDate
-              ? calculateNextOccurrence(
-                  normalizedType,
-                  normalizedInterval,
-                  referenceDate,
-                )
-              : toLocalMidnight(new Date());
-
-        const updates: Record<string, unknown> = {
-          recurrence_type: normalizedType,
-          recurrence_interval: normalizedInterval,
-          recurrence_next_occurrence: nextOccurrence
-            ? nextOccurrence.toISOString()
-            : null,
-          item_kind: itemKind,
-        };
-
-        if (normalizedType === "none") {
-          updates.recurrence_last_completed = null;
-          updates.recurrence_next_occurrence = null;
-        } else {
-          updates.completed = false;
+        if (!existingItem) {
+          toast.error("Item not found");
+          return false;
         }
 
-        const { data, error } = await supabase
-          .from("list_items")
-          .update(updates as never)
-          .eq("id", itemId)
-          .select()
-          .single();
-
-        if (error) throw error;
-        if (data) {
-          refreshItem(data as ListItem);
+        if (existingItem.item_kind === "task" && type === "none") {
+          // No-op: already a task with no recurrence
+          toast.info("No changes to recurrence");
+          return true;
         }
-        toast.success("Recurrence updated");
-        return true;
+
+        if (existingItem.item_kind === "task" && type && type !== "none") {
+          // Converting task -> routine: create routine, delete task
+          const normalizedType: RecurrenceType = type;
+          const normalizedInterval =
+            interval && interval > 0 ? Math.floor(interval) : 1;
+          const nextOccurrence = toLocalMidnight(new Date());
+
+          const { data: created, error: createError } = await supabase
+            .from("routines")
+            .insert([
+              {
+                title: existingItem.title,
+                priority: existingItem.priority,
+                estimated_hours: existingItem.estimated_hours,
+                category: existingItem.category,
+                user_id: existingItem.user_id,
+                recurrence_type: normalizedType,
+                recurrence_interval: normalizedInterval,
+                recurrence_next_occurrence: nextOccurrence
+                  ? nextOccurrence.toISOString()
+                  : null,
+              },
+            ] as never)
+            .select()
+            .single();
+
+          if (createError) throw createError;
+
+          const { error: deleteError } = await supabase
+            .from("tasks")
+            .delete()
+            .eq("id", existingItem.id);
+          if (deleteError) throw deleteError;
+
+          if (created) {
+            removeItem(existingItem.id);
+            refreshItem(routineRowToListItem(created as never));
+          }
+
+          toast.success("Converted to routine");
+          return true;
+        }
+
+        if (existingItem.item_kind === "routine") {
+          const normalizedType: RecurrenceType =
+            type ?? existingItem.recurrence_type;
+          const normalizedInterval =
+            interval && interval > 0
+              ? Math.floor(interval)
+              : existingItem.recurrence_interval;
+
+          if (normalizedType === "none") {
+            // Convert routine -> task
+            const { data: createdTask, error: taskError } = await supabase
+              .from("tasks")
+              .insert([
+                {
+                  title: existingItem.title,
+                  completed: existingItem.completed,
+                  priority: existingItem.priority,
+                  estimated_hours: existingItem.estimated_hours,
+                  category: existingItem.category,
+                  user_id: existingItem.user_id,
+                },
+              ] as never)
+              .select()
+              .single();
+
+            if (taskError) throw taskError;
+
+            const { error: deleteError } = await supabase
+              .from("routines")
+              .delete()
+              .eq("id", existingItem.id);
+            if (deleteError) throw deleteError;
+
+            if (createdTask) {
+              removeItem(existingItem.id);
+              refreshItem(taskRowToListItem(createdTask as never));
+            }
+
+            toast.success("Converted to task");
+            return true;
+          }
+
+          const referenceDate = existingItem.recurrence_last_completed
+            ? new Date(existingItem.recurrence_last_completed)
+            : null;
+          const nextOccurrence = referenceDate
+            ? calculateNextOccurrence(
+                normalizedType,
+                normalizedInterval,
+                referenceDate,
+              )
+            : toLocalMidnight(new Date());
+
+          const updates: Record<string, unknown> = {
+            recurrence_type: normalizedType,
+            recurrence_interval: normalizedInterval,
+            recurrence_next_occurrence: nextOccurrence
+              ? nextOccurrence.toISOString()
+              : null,
+          };
+
+          const { data, error } = await supabase
+            .from("routines")
+            .update(updates as never)
+            .eq("id", itemId)
+            .select()
+            .single();
+
+          if (error) throw error;
+          if (data) {
+            refreshItem(routineRowToListItem(data as never));
+          }
+          toast.success("Recurrence updated");
+          return true;
+        }
+
+        // Fallback: unexpected kind
+        return false;
       } catch (error: unknown) {
         toast.error("Failed to update recurrence", {
           description:
@@ -425,7 +593,7 @@ export function SupabaseProvider({
         return false;
       }
     },
-    [calculateNextOccurrence, items, refreshItem, supabase],
+    [calculateNextOccurrence, items, refreshItem, removeItem, supabase],
   );
 
   const updateItemDetails: ListStore["updateItemDetails"] = useCallback(
@@ -479,39 +647,36 @@ export function SupabaseProvider({
         }
 
         if (updates.recurrence) {
+          if (existingItem.item_kind === "task") {
+            // Task can only get recurrence via updateItemRecurrence which will convert; here we treat as no-op.
+            toast.error("Use recurrence update to convert tasks to routines");
+            return false;
+          }
+
           const normalizedType: RecurrenceType =
-            updates.recurrence.type ?? "none";
+            updates.recurrence.type ?? existingItem.recurrence_type;
           const normalizedInterval =
             updates.recurrence.interval && updates.recurrence.interval > 0
               ? Math.floor(updates.recurrence.interval)
-              : 1;
-          const itemKind: ItemKind =
-            normalizedType === "none" ? "task" : "routine";
+              : existingItem.recurrence_interval;
+
+          const referenceDate = existingItem.recurrence_last_completed
+            ? new Date(existingItem.recurrence_last_completed)
+            : null;
+          const nextOccurrence = referenceDate
+            ? calculateNextOccurrence(
+                normalizedType,
+                normalizedInterval,
+                referenceDate,
+              )
+            : toLocalMidnight(new Date());
 
           payload.recurrence_type = normalizedType;
           payload.recurrence_interval = normalizedInterval;
-          payload.item_kind = itemKind;
+          payload.recurrence_next_occurrence = nextOccurrence
+            ? nextOccurrence.toISOString()
+            : null;
           hasChanges = true;
-
-          if (normalizedType === "none") {
-            payload.recurrence_last_completed = null;
-            payload.recurrence_next_occurrence = null;
-          } else {
-            const referenceDate = existingItem.recurrence_last_completed
-              ? new Date(existingItem.recurrence_last_completed)
-              : null;
-            const nextOccurrence = referenceDate
-              ? calculateNextOccurrence(
-                  normalizedType,
-                  normalizedInterval,
-                  referenceDate,
-                )
-              : toLocalMidnight(new Date());
-            payload.recurrence_next_occurrence = nextOccurrence
-              ? nextOccurrence.toISOString()
-              : null;
-            payload.completed = false;
-          }
         }
 
         if (!hasChanges) {
@@ -519,8 +684,11 @@ export function SupabaseProvider({
           return true;
         }
 
+        const targetTable =
+          existingItem.item_kind === "routine" ? "routines" : "tasks";
+
         const { data, error } = await supabase
-          .from("list_items")
+          .from(targetTable)
           .update(payload as never)
           .eq("id", itemId)
           .select()
@@ -528,7 +696,11 @@ export function SupabaseProvider({
 
         if (error) throw error;
         if (data) {
-          refreshItem(data as ListItem);
+          const updated =
+            targetTable === "tasks"
+              ? taskRowToListItem(data as never)
+              : routineRowToListItem(data as never);
+          refreshItem(updated);
         }
 
         toast.success("Task updated");
@@ -547,8 +719,12 @@ export function SupabaseProvider({
   const deleteItem: ListStore["deleteItem"] = useCallback(
     async (itemId) => {
       try {
+        const existingItem = items.find((current) => current.id === itemId);
+        const targetTable =
+          existingItem?.item_kind === "routine" ? "routines" : "tasks";
+
         const { error } = await supabase
-          .from("list_items")
+          .from(targetTable)
           .delete()
           .eq("id", itemId);
 
@@ -567,7 +743,7 @@ export function SupabaseProvider({
         return false;
       }
     },
-    [supabase, removeItem],
+    [items, supabase, removeItem],
   );
 
   useEffect(() => {
@@ -593,12 +769,12 @@ export function SupabaseProvider({
           today,
         );
         const { data, error } = await supabase
-          .from("list_items")
+          .from("routines")
           .update({
             recurrence_next_occurrence: nextOccurrence
               ? nextOccurrence.toISOString()
               : null,
-            completed: false,
+            active: true,
           } as never)
           .eq("id", item.id)
           .select()
@@ -608,7 +784,7 @@ export function SupabaseProvider({
           continue;
         }
         if (data) {
-          refreshItem(data as ListItem);
+          refreshItem(routineRowToListItem(data as never));
         }
       }
     };

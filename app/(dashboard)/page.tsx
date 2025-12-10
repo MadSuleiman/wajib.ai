@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import type { Category, ListItem } from "@/types";
+import { routineRowToListItem, taskRowToListItem } from "@/types/supabase";
 import { sortItemsByPriority } from "@/components/list-utils";
 import UnifiedDashboard from "@/components/unified-dashboard";
 import type { DashboardView } from "@/hooks/use-dashboard-view";
@@ -15,11 +16,19 @@ export default async function Home({
   const viewParam = Array.isArray(rawView) ? rawView[0] : rawView;
   const supabase = await createServerSupabaseClient();
 
-  const [{ data: listData }, { data: categoriesData }] = await Promise.all([
-    supabase.from("list_items").select("*"),
-    supabase.from("categories").select("*"),
+  const [{ data: taskData }, { data: routineData }, { data: categoriesData }] =
+    await Promise.all([
+      supabase.from("tasks").select("*"),
+      supabase.from("routines").select("*"),
+      supabase.from("categories").select("*"),
+    ]);
+
+  const items = sortItemsByPriority([
+    ...((taskData || []).map((task) => taskRowToListItem(task)) as ListItem[]),
+    ...((routineData || []).map((routine) =>
+      routineRowToListItem(routine),
+    ) as ListItem[]),
   ]);
-  const items = sortItemsByPriority((listData || []) as ListItem[]);
   const {
     data: { session },
   } = await supabase.auth.getSession();
