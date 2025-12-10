@@ -6,10 +6,10 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint .",
+    "lint": "eslint . --cache",
     "type-check": "tsc --noEmit",
-    "format": "prettier --write .",
-    "pre": "prettier --write . && eslint ."
+    "format": "prettier --write . --cache",
+    "test": "pnpm lint && pnpm type-check && pnpm build && pnpm format"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.3",

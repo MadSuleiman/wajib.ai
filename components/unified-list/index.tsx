@@ -5,6 +5,22 @@ import { Filter } from "lucide-react";
 
 import { useSupabase } from "@/components/supabase-provider";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import {
   groupItems,
   sortItems,
@@ -98,6 +114,8 @@ export function UnifiedList() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [timeMarker, setTimeMarker] = useState(() => Date.now());
+  const [showInsights, setShowInsights] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -267,25 +285,85 @@ export function UnifiedList() {
   }, []);
 
   const fallbackCategory = categories[0]?.slug ?? "task";
+  const handleAddItem = useCallback(
+    async (input: Parameters<typeof addItem>[0]) => {
+      const success = await addItem(input);
+      if (success) {
+        setIsCreateOpen(false);
+      }
+      return success;
+    },
+    [addItem],
+  );
+
+  const newItemForm = (
+    <NewItemCard
+      onAddItem={handleAddItem}
+      isSubmitting={isLoading}
+      categoryOptions={categoryOptions}
+      defaultCategory={fallbackCategory}
+    />
+  );
+
+  const createTaskLauncher = isMobile ? (
+    <Drawer
+      open={isCreateOpen}
+      onOpenChange={setIsCreateOpen}
+      direction="bottom"
+    >
+      <DrawerTrigger asChild>
+        <Button size="sm">Create task</Button>
+      </DrawerTrigger>
+      <DrawerContent className="max-h-[85vh] overflow-hidden">
+        <DrawerHeader className="sr-only">
+          <DrawerTitle>Create task</DrawerTitle>
+        </DrawerHeader>
+        <div className="overflow-y-auto p-4 pt-2">{newItemForm}</div>
+      </DrawerContent>
+    </Drawer>
+  ) : (
+    <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm">Create task</Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Create task</DialogTitle>
+          <DialogDescription>
+            Capture an item and add details before saving.
+          </DialogDescription>
+        </DialogHeader>
+        {newItemForm}
+      </DialogContent>
+    </Dialog>
+  );
 
   return (
     <div className="space-y-6">
-      <NewItemCard
-        onAddItem={addItem}
-        isSubmitting={isLoading}
-        categoryOptions={categoryOptions}
-        defaultCategory={fallbackCategory}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowInsights((prev) => !prev)}
+          >
+            {showInsights ? "Hide task insights" : "Show task insights"}
+          </Button>
+        </div>
+        {createTaskLauncher}
+      </div>
 
-      <InsightsGrid
-        categoryChartData={categoryChartData}
-        recurringBreakdownData={recurringBreakdownData}
-        summaryText={summaryText}
-        activeCount={activeCount}
-        completedCount={completedCount}
-        categoryCount={categoryOptions.length}
-        recurringCount={recurringCount}
-      />
+      {showInsights ? (
+        <InsightsGrid
+          categoryChartData={categoryChartData}
+          recurringBreakdownData={recurringBreakdownData}
+          summaryText={summaryText}
+          activeCount={activeCount}
+          completedCount={completedCount}
+          categoryCount={categoryOptions.length}
+          recurringCount={recurringCount}
+        />
+      ) : null}
       <FiltersCard
         statusFilter={statusFilter}
         onStatusChange={setStatusFilter}

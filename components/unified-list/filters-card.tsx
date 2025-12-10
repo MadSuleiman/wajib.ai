@@ -1,13 +1,12 @@
 import type React from "react";
 import type { ItemGroupMode, SortOptionValue } from "@/components/list-utils";
-import { Filter } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -35,21 +34,6 @@ type FiltersCardProps = {
   onSortValueChange: (value: SortOptionValue) => void;
   onReset: () => void;
 };
-
-type ToolbarButtonProps = React.ComponentProps<typeof Button> & {
-  icon: typeof Filter;
-};
-
-const ToolbarButton = ({
-  icon: Icon,
-  children,
-  ...props
-}: ToolbarButtonProps) => (
-  <Button variant="secondary" size="sm" {...props}>
-    <Icon className="mr-2 h-4 w-4" />
-    {children}
-  </Button>
-);
 
 export function FiltersCard({
   statusFilter,
@@ -148,12 +132,19 @@ export function FiltersCard({
             </SelectContent>
           </Select>
         </div>
+        <div className="flex flex-col justify-end space-y-1">
+          <Label>Reset</Label>
+          <Button
+            variant="outline"
+            size="default"
+            className="w-full justify-start gap-2"
+            onClick={onReset}
+          >
+            <RotateCcw className="h-4 w-4" />
+            Reset filters
+          </Button>
+        </div>
       </CardContent>
-      <CardFooter className="flex flex-wrap gap-2">
-        <ToolbarButton type="button" icon={Filter} onClick={onReset}>
-          Reset filters
-        </ToolbarButton>
-      </CardFooter>
     </Card>
   );
 }
