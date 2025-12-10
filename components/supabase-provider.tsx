@@ -14,11 +14,14 @@ import { toast } from "sonner";
 
 import { createClientSupabaseClient } from "@/lib/supabase-client";
 import { sortItemsByPriority } from "@/components/list-utils";
-import { getLocalDayBoundaries, toLocalMidnight } from "@/lib/timezone";
-import type { Category, ListItem, RecurrenceType, TaskPriority } from "@/types";
-
-type RecurrenceLogCompletion = { completed_at: string };
-type RecurrenceLogWithItem = { list_item_id: string; completed_at: string };
+import { toLocalMidnight } from "@/lib/timezone";
+import type {
+  Category,
+  ItemKind,
+  ListItem,
+  RecurrenceType,
+  TaskPriority,
+} from "@/types";
 
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
@@ -168,6 +171,8 @@ export function SupabaseProvider({
           recurrenceInterval && recurrenceInterval > 0
             ? Math.floor(recurrenceInterval)
             : 1;
+        const itemKind: ItemKind =
+          normalizedRecurrenceType === "none" ? "task" : "routine";
         const nextOccurrence =
           normalizedRecurrenceType === "none"
             ? null
@@ -178,6 +183,7 @@ export function SupabaseProvider({
             {
               title: trimmedTitle,
               completed: false,
+              item_kind: itemKind,
               priority,
               estimated_hours: estimatedHours,
               category: normalizedCategory,
@@ -219,67 +225,10 @@ export function SupabaseProvider({
     async (item) => {
       if (item.recurrence_type && item.recurrence_type !== "none") {
         try {
-          const now = new Date();
-          const { start: todayStart, end: todayEnd } =
-            getLocalDayBoundaries(now);
-
-          const { data: existingLogsRaw, error: existingLogError } =
-            await supabase
-              .from("recurrence_logs")
-              .select("completed_at")
-              .eq("list_item_id", item.id)
-              .gte("completed_at", todayStart.toISOString())
-              .lt("completed_at", todayEnd.toISOString())
-              .order("completed_at", { ascending: false })
-              .limit(1);
-
-          if (existingLogError) throw existingLogError;
-
-          const existingLogs = existingLogsRaw as
-            | RecurrenceLogCompletion[]
-            | null;
-          let completedAtIso = existingLogs?.[0]?.completed_at ?? null;
-
-          if (!completedAtIso) {
-            const { data: newLogRaw, error: logError } = await supabase
-              .from("recurrence_logs")
-              .insert([
-                {
-                  list_item_id: item.id,
-                  user_id: item.user_id,
-                  completed_at: now.toISOString(),
-                },
-              ] as never)
-              .select("completed_at")
-              .single();
-
-            if (logError) throw logError;
-            const newLog = newLogRaw as RecurrenceLogCompletion | null;
-            if (!newLog) {
-              throw new Error("Failed to create recurrence log entry");
-            }
-            completedAtIso = newLog.completed_at;
-          }
-
-          const completionDate = new Date(completedAtIso);
-          const nextOccurrence = calculateNextOccurrence(
-            item.recurrence_type,
-            item.recurrence_interval || 1,
-            completionDate,
-          );
-
-          const { data, error } = await supabase
-            .from("list_items")
-            .update({
-              completed: false,
-              recurrence_last_completed: completedAtIso,
-              recurrence_next_occurrence: nextOccurrence
-                ? nextOccurrence.toISOString()
-                : null,
-            } as never)
-            .eq("id", item.id)
-            .select()
-            .single();
+          const { data, error } = await supabase.rpc("complete_routine", {
+            p_item_id: item.id,
+            p_user_id: item.user_id,
+          });
 
           if (error) throw error;
 
@@ -322,6 +271,8 @@ export function SupabaseProvider({
         return false;
       }
     },
+    // calculateNextOccurrence is stable; included for clarity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [calculateNextOccurrence, refreshItem, supabase],
   );
 
@@ -421,6 +372,8 @@ export function SupabaseProvider({
         const normalizedType: RecurrenceType = type ?? "none";
         const normalizedInterval =
           interval && interval > 0 ? Math.floor(interval) : 1;
+        const itemKind: ItemKind =
+          normalizedType === "none" ? "task" : "routine";
         const referenceDate = existingItem?.recurrence_last_completed
           ? new Date(existingItem.recurrence_last_completed)
           : null;
@@ -441,6 +394,7 @@ export function SupabaseProvider({
           recurrence_next_occurrence: nextOccurrence
             ? nextOccurrence.toISOString()
             : null,
+          item_kind: itemKind,
         };
 
         if (normalizedType === "none") {
@@ -531,9 +485,12 @@ export function SupabaseProvider({
             updates.recurrence.interval && updates.recurrence.interval > 0
               ? Math.floor(updates.recurrence.interval)
               : 1;
+          const itemKind: ItemKind =
+            normalizedType === "none" ? "task" : "routine";
 
           payload.recurrence_type = normalizedType;
           payload.recurrence_interval = normalizedInterval;
+          payload.item_kind = itemKind;
           hasChanges = true;
 
           if (normalizedType === "none") {
@@ -614,105 +571,52 @@ export function SupabaseProvider({
   );
 
   useEffect(() => {
-    const recurringItems = items.filter(
-      (item) => item.recurrence_type && item.recurrence_type !== "none",
-    );
-    if (!recurringItems.length) {
-      return;
-    }
-
-    const misalignedItems = recurringItems.filter((item) => {
-      if (!item.recurrence_next_occurrence) {
-        return true;
+    const today = toLocalMidnight(new Date());
+    const overdue = items.filter((item) => {
+      if (!item.recurrence_type || item.recurrence_type === "none") {
+        return false;
       }
+      if (!item.recurrence_next_occurrence) return false;
       const nextDate = new Date(item.recurrence_next_occurrence);
-      return (
-        nextDate.getHours() !== 0 ||
-        nextDate.getMinutes() !== 0 ||
-        nextDate.getSeconds() !== 0 ||
-        nextDate.getMilliseconds() !== 0
-      );
+      return nextDate < today;
     });
 
-    if (!misalignedItems.length) {
-      return;
-    }
+    if (!overdue.length) return;
 
-    let isCancelled = false;
-    const normalizeSchedules = async () => {
-      const idsNeedingAlignment = misalignedItems.map((item) => item.id);
-
-      const { data: logsRaw, error: logsError } = await supabase
-        .from("recurrence_logs")
-        .select("list_item_id, completed_at")
-        .in("list_item_id", idsNeedingAlignment)
-        .order("completed_at", { ascending: false });
-
-      if (logsError) {
-        console.error("Failed to normalize recurrence logs", logsError);
-        return;
-      }
-
-      const logs = (logsRaw ?? []) as RecurrenceLogWithItem[];
-
-      const latestLogMap = new Map<string, string>();
-      for (const log of logs) {
-        if (!latestLogMap.has(log.list_item_id)) {
-          latestLogMap.set(log.list_item_id, log.completed_at);
-        }
-      }
-
-      for (const item of misalignedItems) {
-        if (isCancelled) break;
-        const logCompletedAt = latestLogMap.get(item.id) ?? null;
-        const referenceIso = logCompletedAt ?? item.recurrence_last_completed;
-        const referenceDate = referenceIso ? new Date(referenceIso) : null;
-
-        const nextOccurrence =
-          referenceDate && item.recurrence_type !== "none"
-            ? calculateNextOccurrence(
-                item.recurrence_type,
-                item.recurrence_interval || 1,
-                referenceDate,
-              )
-            : toLocalMidnight(new Date());
-
-        const expectedNextIso = nextOccurrence
-          ? nextOccurrence.toISOString()
-          : null;
-
-        if (
-          expectedNextIso === (item.recurrence_next_occurrence ?? null) &&
-          (referenceIso ?? null) === (item.recurrence_last_completed ?? null)
-        ) {
-          continue;
-        }
-
+    let cancelled = false;
+    const rescheduleOverdue = async () => {
+      for (const item of overdue) {
+        if (cancelled) break;
+        const nextOccurrence = calculateNextOccurrence(
+          item.recurrence_type,
+          item.recurrence_interval || 1,
+          today,
+        );
         const { data, error } = await supabase
           .from("list_items")
           .update({
-            recurrence_last_completed: referenceIso ?? null,
-            recurrence_next_occurrence: expectedNextIso,
+            recurrence_next_occurrence: nextOccurrence
+              ? nextOccurrence.toISOString()
+              : null,
+            completed: false,
           } as never)
           .eq("id", item.id)
           .select()
           .single();
-
         if (error) {
-          console.error("Failed to normalize recurrence item", item.id, error);
+          console.error("Failed to reschedule overdue routine", item.id, error);
           continue;
         }
-
         if (data) {
           refreshItem(data as ListItem);
         }
       }
     };
 
-    void normalizeSchedules();
+    void rescheduleOverdue();
 
     return () => {
-      isCancelled = true;
+      cancelled = true;
     };
   }, [calculateNextOccurrence, items, refreshItem, supabase]);
 

@@ -7,5 +7,6 @@ export type {
   CategoryUpdate,
   TaskPriority,
   RecurrenceType,
+  ItemKind,
   SupabaseTableName,
 } from "./supabase";

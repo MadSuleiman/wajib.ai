@@ -1,5 +1,11 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { formatDistanceToNow } from "date-fns";
+import {
+  differenceInCalendarDays,
+  differenceInCalendarMonths,
+  differenceInCalendarWeeks,
+  differenceInCalendarYears,
+  formatDistanceToNow,
+} from "date-fns";
 import { CheckCircle2, Circle, Pencil, Trash2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -38,6 +44,7 @@ const formatAddedDescription = (createdAt: string, timeZone: string) => {
 
 type ItemsViewProps = {
   isMobile: boolean;
+  currentTime: number;
   summaryText: string;
   prioritizedItems: ListItem[];
   displayGroups: ItemGroup[];
@@ -63,6 +70,7 @@ type ItemsViewProps = {
 
 export function ItemsView({
   isMobile,
+  currentTime,
   summaryText,
   prioritizedItems,
   displayGroups,
@@ -76,6 +84,9 @@ export function ItemsView({
   tableSortState,
   onTableSortChange,
 }: ItemsViewProps) {
+  const [editorVariant, setEditorVariant] = useState<"task" | "routine">(
+    "task",
+  );
   const userTimeZone = useMemo(() => getLocalTimeZone(), []);
   const timeZoneDisplay = useMemo(
     () => formatTimeZoneDisplay(userTimeZone),
@@ -96,6 +107,11 @@ export function ItemsView({
 
   const handleOpenEditor = useCallback((item: ListItem) => {
     setEditorTask(item);
+    setEditorVariant(
+      item.item_kind === "routine" || item.recurrence_type !== "none"
+        ? "routine"
+        : "task",
+    );
     setIsEditorOpen(true);
   }, []);
 
@@ -105,6 +121,52 @@ export function ItemsView({
       setEditorTask(null);
     }
   }, []);
+
+  const getLateLabel = useCallback(
+    (item: ListItem): string | null => {
+      if (item.recurrence_type === "none") return null;
+      const nextTs = item.recurrence_next_occurrence
+        ? Date.parse(item.recurrence_next_occurrence)
+        : Number.NaN;
+      if (Number.isNaN(nextTs)) return null;
+      if (nextTs >= currentTime) return null;
+      const nowDate = new Date(currentTime);
+      const nextDate = new Date(nextTs);
+      switch (item.recurrence_type) {
+        case "daily": {
+          const daysLate = Math.max(
+            1,
+            differenceInCalendarDays(nowDate, nextDate),
+          );
+          return `${daysLate} day${daysLate === 1 ? "" : "s"} late`;
+        }
+        case "weekly": {
+          const weeksLate = Math.max(
+            1,
+            differenceInCalendarWeeks(nowDate, nextDate),
+          );
+          return `${weeksLate} week${weeksLate === 1 ? "" : "s"} late`;
+        }
+        case "monthly": {
+          const monthsLate = Math.max(
+            1,
+            differenceInCalendarMonths(nowDate, nextDate),
+          );
+          return `${monthsLate} month${monthsLate === 1 ? "" : "s"} late`;
+        }
+        case "yearly": {
+          const yearsLate = Math.max(
+            1,
+            differenceInCalendarYears(nowDate, nextDate),
+          );
+          return `${yearsLate} year${yearsLate === 1 ? "" : "s"} late`;
+        }
+        default:
+          return null;
+      }
+    },
+    [currentTime],
+  );
 
   return (
     <div className="space-y-4">
@@ -125,6 +187,7 @@ export function ItemsView({
             formatAdded={formatAdded}
             formatNextOccurrence={formatNextOccurrence}
             onEditTask={handleOpenEditor}
+            getLateLabel={getLateLabel}
           />
         ) : (
           <div className="rounded-lg border bg-card/40">
@@ -145,6 +208,7 @@ export function ItemsView({
           formatAdded={formatAdded}
           formatNextOccurrence={formatNextOccurrence}
           onEditTask={handleOpenEditor}
+          getLateLabel={getLateLabel}
         />
       )}
 
@@ -152,6 +216,7 @@ export function ItemsView({
         isOpen={isEditorOpen}
         onOpenChange={handleEditorOpenChange}
         item={editorTask}
+        variant={editorVariant}
         categoryOptions={categoryOptions}
         onSave={updateItemDetails}
         isMobile={isMobile}
@@ -173,6 +238,7 @@ type DesktopTableProps = {
   formatAdded: (value: string) => string;
   formatNextOccurrence: (value: string | null) => string;
   onEditTask: (item: ListItem) => void;
+  getLateLabel: (item: ListItem) => string | null;
 };
 
 function DesktopTable({
@@ -188,6 +254,7 @@ function DesktopTable({
   formatAdded,
   formatNextOccurrence,
   onEditTask,
+  getLateLabel,
 }: DesktopTableProps) {
   const columns = useMemo<DataTableColumn<ListItem>[]>(() => {
     return [
@@ -251,20 +318,28 @@ function DesktopTable({
       {
         id: "recurrence",
         header: "Recurrence",
-        cell: (item) => (
-          <div className="flex flex-col text-sm">
-            <span className="font-medium">
-              {item.recurrence_type === "none"
-                ? "One-time"
-                : `${recurrenceLabelMap[item.recurrence_type]} · every ${item.recurrence_interval}`}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {item.recurrence_type === "none"
-                ? "Doesn't repeat"
-                : `Next: ${formatNextOccurrence(item.recurrence_next_occurrence)}`}
-            </span>
-          </div>
-        ),
+        cell: (item) => {
+          const lateLabel = getLateLabel(item);
+          return (
+            <div className="flex flex-col text-sm">
+              <span className="font-medium">
+                {item.recurrence_type === "none"
+                  ? "One-time"
+                  : `${recurrenceLabelMap[item.recurrence_type]} · every ${item.recurrence_interval}`}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {item.recurrence_type === "none"
+                  ? "Doesn't repeat"
+                  : `Next: ${formatNextOccurrence(item.recurrence_next_occurrence)}`}
+              </span>
+              {lateLabel ? (
+                <span className="text-xs font-semibold text-destructive">
+                  {lateLabel}
+                </span>
+              ) : null}
+            </div>
+          );
+        },
       },
       {
         id: "priority",
@@ -336,6 +411,7 @@ function DesktopTable({
     derivedStatuses,
     formatAdded,
     formatNextOccurrence,
+    getLateLabel,
     onEditTask,
     toggleItemCompletion,
   ]);
@@ -394,6 +470,7 @@ type MobileListProps = {
   formatAdded: (value: string) => string;
   formatNextOccurrence: (value: string | null) => string;
   onEditTask: (item: ListItem) => void;
+  getLateLabel: (item: ListItem) => string | null;
 };
 
 function MobileList({
@@ -405,6 +482,7 @@ function MobileList({
   formatAdded,
   formatNextOccurrence,
   onEditTask,
+  getLateLabel,
 }: MobileListProps) {
   return (
     <div className="space-y-5">
@@ -423,6 +501,7 @@ function MobileList({
                 const categoryLabel = categoryInfo?.label ?? item.category;
                 const isCompleted =
                   (derivedStatuses.get(item.id) ?? "active") === "completed";
+                const lateLabel = getLateLabel(item);
 
                 return (
                   <div
@@ -484,11 +563,20 @@ function MobileList({
                       </span>
                     </div>
                     {item.recurrence_type !== "none" && (
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {recurrenceLabelMap[item.recurrence_type]} every{" "}
-                        {item.recurrence_interval} • Next{" "}
-                        {formatNextOccurrence(item.recurrence_next_occurrence)}
-                      </p>
+                      <div className="mt-2 space-y-1 text-xs">
+                        <p className="text-muted-foreground">
+                          {recurrenceLabelMap[item.recurrence_type]} every{" "}
+                          {item.recurrence_interval} • Next{" "}
+                          {formatNextOccurrence(
+                            item.recurrence_next_occurrence,
+                          )}
+                        </p>
+                        {lateLabel ? (
+                          <p className="font-semibold text-destructive">
+                            {lateLabel}
+                          </p>
+                        ) : null}
+                      </div>
                     )}
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <Button

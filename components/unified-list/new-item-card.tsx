@@ -40,6 +40,7 @@ import { recurrenceOptions } from "./constants";
 import type { CategoryOption } from "./types";
 
 type NewItemCardProps = {
+  variant: "task" | "routine";
   onAddItem: (input: {
     title: string;
     priority: TaskPriority;
@@ -54,6 +55,7 @@ type NewItemCardProps = {
 };
 
 export function NewItemCard({
+  variant,
   onAddItem,
   isSubmitting,
   categoryOptions,
@@ -63,7 +65,10 @@ export function NewItemCard({
   const [priority, setPriority] = useState<TaskPriority>("medium");
   const [hours, setHours] = useState("");
   const [categorySelection, setCategorySelection] = useState(defaultCategory);
-  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>("none");
+  const isRoutine = variant === "routine";
+  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>(
+    isRoutine ? "daily" : "none",
+  );
   const [recurrenceInterval, setRecurrenceInterval] = useState("1");
   const [categoryPopoverOpen, setCategoryPopoverOpen] = useState(false);
 
@@ -92,13 +97,18 @@ export function NewItemCard({
         ? 1
         : Math.max(1, parsedInterval);
 
+      const effectiveRecurrenceType: RecurrenceType = isRoutine
+        ? recurrenceType
+        : "none";
+      const effectiveInterval = isRoutine ? normalizedInterval : 1;
+
       const success = await onAddItem({
         title,
         priority,
         hours,
         category: resolvedCategory,
-        recurrenceType,
-        recurrenceInterval: normalizedInterval,
+        recurrenceType: effectiveRecurrenceType,
+        recurrenceInterval: effectiveInterval,
       });
 
       if (success) {
@@ -106,7 +116,7 @@ export function NewItemCard({
         setPriority("medium");
         setHours("");
         setCategorySelection(defaultCategory);
-        setRecurrenceType("none");
+        setRecurrenceType(isRoutine ? "daily" : "none");
         setRecurrenceInterval("1");
       }
     },
@@ -119,16 +129,24 @@ export function NewItemCard({
       recurrenceInterval,
       recurrenceType,
       title,
+      isRoutine,
     ],
   );
+
+  const recurrenceChoices = useMemo(() => {
+    return isRoutine
+      ? recurrenceOptions.filter((option) => option.value !== "none")
+      : [];
+  }, [isRoutine]);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Capture an item</CardTitle>
+        <CardTitle>{isRoutine ? "Create routine" : "Create task"}</CardTitle>
         <CardDescription>
-          Track everything in one place and label items with a category that
-          makes sense to you.
+          {isRoutine
+            ? "Set a cadence to maintain habits and recurring responsibilities."
+            : "Track one-off work with categories and priorities."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -139,7 +157,11 @@ export function NewItemCard({
               id="item-title"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="Ex. Renew passport, pick up groceries, watch The Office"
+              placeholder={
+                isRoutine
+                  ? "Ex. Morning workout, weekly review, call parents"
+                  : "Ex. Renew passport, pick up groceries, watch The Office"
+              }
             />
           </div>
 
@@ -224,46 +246,49 @@ export function NewItemCard({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 md:gap-2">
-            <div className="space-y-2">
-              <Label>Recurrence</Label>
-              <Select
-                value={recurrenceType}
-                onValueChange={(value: RecurrenceType) =>
-                  setRecurrenceType(value)
-                }
-              >
-                <SelectTrigger className="w-full capitalize">
-                  <SelectValue placeholder="Does not repeat" />
-                </SelectTrigger>
-                <SelectContent>
-                  {recurrenceOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {
-                  recurrenceOptions.find(
-                    (option) => option.value === recurrenceType,
-                  )?.description
-                }
-              </p>
+          {isRoutine ? (
+            <div className="grid grid-cols-2 gap-3 md:gap-2">
+              <div className="space-y-2">
+                <Label>Recurrence</Label>
+                <Select
+                  value={recurrenceType}
+                  onValueChange={(value: RecurrenceType) =>
+                    setRecurrenceType(value)
+                  }
+                >
+                  <SelectTrigger className="w-full capitalize">
+                    <SelectValue placeholder="Choose cadence" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {recurrenceChoices.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {
+                    recurrenceChoices.find(
+                      (option) => option.value === recurrenceType,
+                    )?.description
+                  }
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="item-recurrence-interval">Every</Label>
+                <Input
+                  id="item-recurrence-interval"
+                  type="number"
+                  min={1}
+                  value={recurrenceInterval}
+                  onChange={(event) =>
+                    setRecurrenceInterval(event.target.value)
+                  }
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="item-recurrence-interval">Every</Label>
-              <Input
-                id="item-recurrence-interval"
-                type="number"
-                min={1}
-                value={recurrenceInterval}
-                onChange={(event) => setRecurrenceInterval(event.target.value)}
-                disabled={recurrenceType === "none"}
-              />
-            </div>
-          </div>
+          ) : null}
 
           <div className="grid grid-cols-2 gap-3 md:gap-2">
             <div className="space-y-2">
@@ -290,7 +315,7 @@ export function NewItemCard({
                 ) : (
                   <>
                     <Plus className="mr-2 h-4 w-4" />
-                    Add
+                    {isRoutine ? "Add routine" : "Add task"}
                   </>
                 )}
               </Button>

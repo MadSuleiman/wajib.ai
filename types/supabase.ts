@@ -1,5 +1,6 @@
 export type TaskPriority = "low" | "medium" | "high";
 export type RecurrenceType = "none" | "daily" | "weekly" | "monthly" | "yearly";
+export type ItemKind = "task" | "routine";
 
 export type SupabaseTableName = "list_items" | "categories" | "recurrence_logs";
 
@@ -8,6 +9,7 @@ export interface ListItemRow {
   created_at: string;
   title: string;
   completed: boolean;
+  item_kind: ItemKind;
   priority: TaskPriority;
   estimated_hours: number | null;
   user_id: string;
@@ -23,6 +25,7 @@ export interface ListItemInsert {
   created_at?: string;
   title: string;
   completed?: boolean;
+  item_kind?: ItemKind;
   priority?: TaskPriority;
   estimated_hours?: number | null;
   user_id?: string;

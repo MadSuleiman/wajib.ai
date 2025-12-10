@@ -21,6 +21,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   groupItems,
   sortItems,
@@ -115,7 +116,9 @@ export function UnifiedList() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [timeMarker, setTimeMarker] = useState(() => Date.now());
   const [showInsights, setShowInsights] = useState(false);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
+  const [isCreateRoutineOpen, setIsCreateRoutineOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"tasks" | "routines">("tasks");
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -143,100 +146,122 @@ export function UnifiedList() {
     [categoryOptions],
   );
 
-  const derivedStatuses = useMemo(
-    () =>
-      items.reduce((map, item) => {
-        map.set(item.id, getDerivedStatus(item, timeMarker));
-        return map;
-      }, new Map<string, DerivedStatus>()),
-    [items, timeMarker],
-  );
+  const derivedStatuses = useMemo(() => {
+    return items.reduce((map, item) => {
+      map.set(item.id, getDerivedStatus(item, timeMarker));
+      return map;
+    }, new Map<string, DerivedStatus>());
+  }, [items, timeMarker]);
 
-  const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      const derivedStatus = derivedStatuses.get(item.id) ?? "active";
-      const matchesStatus =
-        statusFilter === "all" ? true : statusFilter === derivedStatus;
-
-      const matchesCategory =
-        categoryFilter === "all" ? true : item.category === categoryFilter;
-
-      return matchesStatus && matchesCategory;
-    });
-  }, [categoryFilter, derivedStatuses, items, statusFilter]);
-
-  const sortConfig = useMemo(() => sortConfigFromValue(sortValue), [sortValue]);
-
-  const tableSortState = useMemo(() => {
-    const columnId = columnIdBySortKey[sortConfig.key];
-    if (!columnId) return undefined;
-    return { columnId, direction: sortConfig.direction };
-  }, [sortConfig]);
-
-  const sortedItems = useMemo(
-    () => sortItems(filteredItems, sortConfig),
-    [filteredItems, sortConfig],
-  );
-
-  const {
-    prioritized: prioritizedItems,
-    daily: dailyRecurringItems,
-    others: nonDailyItems,
-  } = useMemo(() => splitDailyRecurringItems(sortedItems), [sortedItems]);
-
-  const groupedItems = useMemo(
-    () => groupItems(prioritizedItems, groupMode),
-    [prioritizedItems, groupMode],
-  );
-
-  const displayGroups = useMemo<ItemGroup[]>(() => {
-    if (groupMode === "none") {
-      const groups: ItemGroup[] = [];
-      if (dailyRecurringItems.length) {
-        groups.push({ label: "Daily recurring", items: dailyRecurringItems });
+  const { tasks, routines } = useMemo(() => {
+    const taskItems: ListItem[] = [];
+    const routineItems: ListItem[] = [];
+    for (const item of items) {
+      if (item.item_kind === "routine" || item.recurrence_type !== "none") {
+        routineItems.push(item);
+      } else {
+        taskItems.push(item);
       }
-      if (nonDailyItems.length) {
-        groups.push({
-          label: dailyRecurringItems.length ? "Other tasks" : "",
-          items: nonDailyItems,
-        });
-      }
-      return groups.length ? groups : [{ label: "", items: prioritizedItems }];
     }
+    return { tasks: taskItems, routines: routineItems };
+  }, [items]);
 
-    return groupedItems.map((group) => ({
-      label: group.label,
-      items: group.items,
-    }));
-  }, [
-    dailyRecurringItems,
-    groupMode,
-    groupedItems,
-    nonDailyItems,
-    prioritizedItems,
-  ]);
+  const filterAndSortItems = useCallback(
+    (input: ListItem[]) => {
+      const filtered = input.filter((item) => {
+        const derivedStatus = derivedStatuses.get(item.id) ?? "active";
+        const matchesStatus =
+          statusFilter === "all" ? true : statusFilter === derivedStatus;
 
-  const { activeCount, completedCount } = useMemo(() => {
-    let completed = 0;
-    derivedStatuses.forEach((status) => {
-      if (status === "completed") {
-        completed += 1;
-      }
-    });
-    return {
-      completedCount: completed,
-      activeCount: items.length - completed,
-    };
-  }, [derivedStatuses, items.length]);
+        const matchesCategory =
+          categoryFilter === "all" ? true : item.category === categoryFilter;
 
-  const recurringCount = useMemo(
-    () => items.filter((item) => item.recurrence_type !== "none").length,
-    [items],
+        return matchesStatus && matchesCategory;
+      });
+
+      const sortConfig = sortConfigFromValue(sortValue);
+      const sorted = sortItems(filtered, sortConfig);
+      const { prioritized, daily, others } = splitDailyRecurringItems(sorted);
+      const grouped = groupItems(prioritized, groupMode).map((group) => ({
+        label: group.label,
+        items: group.items,
+      }));
+      const groupedForNone =
+        groupMode === "none"
+          ? (() => {
+              const groups: ItemGroup[] = [];
+              if (daily.length) {
+                groups.push({ label: "Daily recurring", items: daily });
+              }
+              if (others.length) {
+                groups.push({
+                  label: daily.length ? "Other tasks" : "",
+                  items: others,
+                });
+              }
+              return groups.length
+                ? groups
+                : [{ label: "", items: prioritized }];
+            })()
+          : grouped;
+
+      const tableSortState = (() => {
+        const sortConfigLocal = sortConfigFromValue(sortValue);
+        const columnId = columnIdBySortKey[sortConfigLocal.key];
+        if (!columnId) return undefined;
+        return { columnId, direction: sortConfigLocal.direction };
+      })();
+
+      return {
+        filtered,
+        prioritized,
+        groupedItems: groupedForNone,
+        tableSortState,
+      };
+    },
+    [categoryFilter, derivedStatuses, groupMode, sortValue, statusFilter],
   );
 
-  const summaryText = `Showing ${prioritizedItems.length} of ${
-    items.length
-  } items (${activeCount} active, ${completedCount} completed)`;
+  const taskView = useMemo(
+    () => filterAndSortItems(tasks),
+    [filterAndSortItems, tasks],
+  );
+  const routineView = useMemo(
+    () => filterAndSortItems(routines),
+    [filterAndSortItems, routines],
+  );
+
+  const counts = useMemo(() => {
+    const accumulator = (list: ListItem[]) => {
+      let completed = 0;
+      list.forEach((item) => {
+        const status = derivedStatuses.get(item.id) ?? "active";
+        if (status === "completed") completed += 1;
+      });
+      return {
+        completedCount: completed,
+        activeCount: list.length - completed,
+      };
+    };
+    return {
+      tasks: accumulator(tasks),
+      routines: accumulator(routines),
+    };
+  }, [derivedStatuses, routines, tasks]);
+
+  const recurringCount = useMemo(() => routines.length, [routines]);
+
+  const summaryTextTasks = `Showing ${taskView.prioritized.length} of ${
+    tasks.length
+  } tasks (${counts.tasks.activeCount} active, ${
+    counts.tasks.completedCount
+  } completed)`;
+
+  const summaryTextRoutines = `Showing ${routineView.prioritized.length} of ${
+    routines.length
+  } routines (${counts.routines.activeCount} due, ${
+    counts.routines.completedCount
+  } not due)`;
 
   const emptyStateMessage =
     items.length === 0
@@ -285,20 +310,45 @@ export function UnifiedList() {
   }, []);
 
   const fallbackCategory = categories[0]?.slug ?? "task";
-  const handleAddItem = useCallback(
+  const handleAddTask = useCallback(
     async (input: Parameters<typeof addItem>[0]) => {
-      const success = await addItem(input);
+      const success = await addItem({ ...input, recurrenceType: "none" });
       if (success) {
-        setIsCreateOpen(false);
+        setIsCreateTaskOpen(false);
       }
       return success;
     },
     [addItem],
   );
 
-  const newItemForm = (
+  const handleAddRoutine = useCallback(
+    async (input: Parameters<typeof addItem>[0]) => {
+      const success = await addItem({
+        ...input,
+        recurrenceType: input.recurrenceType ?? "daily",
+      });
+      if (success) {
+        setIsCreateRoutineOpen(false);
+      }
+      return success;
+    },
+    [addItem],
+  );
+
+  const newTaskForm = (
     <NewItemCard
-      onAddItem={handleAddItem}
+      variant="task"
+      onAddItem={handleAddTask}
+      isSubmitting={isLoading}
+      categoryOptions={categoryOptions}
+      defaultCategory={fallbackCategory}
+    />
+  );
+
+  const newRoutineForm = (
+    <NewItemCard
+      variant="routine"
+      onAddItem={handleAddRoutine}
       isSubmitting={isLoading}
       categoryOptions={categoryOptions}
       defaultCategory={fallbackCategory}
@@ -307,8 +357,8 @@ export function UnifiedList() {
 
   const createTaskLauncher = isMobile ? (
     <Drawer
-      open={isCreateOpen}
-      onOpenChange={setIsCreateOpen}
+      open={isCreateTaskOpen}
+      onOpenChange={setIsCreateTaskOpen}
       direction="bottom"
     >
       <DrawerTrigger asChild>
@@ -318,11 +368,11 @@ export function UnifiedList() {
         <DrawerHeader className="sr-only">
           <DrawerTitle>Create task</DrawerTitle>
         </DrawerHeader>
-        <div className="overflow-y-auto p-4 pt-2">{newItemForm}</div>
+        <div className="overflow-y-auto p-4 pt-2">{newTaskForm}</div>
       </DrawerContent>
     </Drawer>
   ) : (
-    <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+    <Dialog open={isCreateTaskOpen} onOpenChange={setIsCreateTaskOpen}>
       <DialogTrigger asChild>
         <Button size="sm">Create task</Button>
       </DialogTrigger>
@@ -333,7 +383,44 @@ export function UnifiedList() {
             Capture an item and add details before saving.
           </DialogDescription>
         </DialogHeader>
-        {newItemForm}
+        {newTaskForm}
+      </DialogContent>
+    </Dialog>
+  );
+
+  const createRoutineLauncher = isMobile ? (
+    <Drawer
+      open={isCreateRoutineOpen}
+      onOpenChange={setIsCreateRoutineOpen}
+      direction="bottom"
+    >
+      <DrawerTrigger asChild>
+        <Button variant="outline" size="sm">
+          Create routine
+        </Button>
+      </DrawerTrigger>
+      <DrawerContent className="max-h-[85vh] overflow-hidden">
+        <DrawerHeader className="sr-only">
+          <DrawerTitle>Create routine</DrawerTitle>
+        </DrawerHeader>
+        <div className="overflow-y-auto p-4 pt-2">{newRoutineForm}</div>
+      </DrawerContent>
+    </Drawer>
+  ) : (
+    <Dialog open={isCreateRoutineOpen} onOpenChange={setIsCreateRoutineOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          Create routine
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Create routine</DialogTitle>
+          <DialogDescription>
+            Add a recurring cadence and mark completions over time.
+          </DialogDescription>
+        </DialogHeader>
+        {newRoutineForm}
       </DialogContent>
     </Dialog>
   );
@@ -341,6 +428,10 @@ export function UnifiedList() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-2">
+          {createTaskLauncher}
+          {createRoutineLauncher}
+        </div>
         <div className="flex justify-end">
           <Button
             variant="outline"
@@ -350,16 +441,17 @@ export function UnifiedList() {
             {showInsights ? "Hide task insights" : "Show task insights"}
           </Button>
         </div>
-        {createTaskLauncher}
       </div>
 
       {showInsights ? (
         <InsightsGrid
           categoryChartData={categoryChartData}
           recurringBreakdownData={recurringBreakdownData}
-          summaryText={summaryText}
-          activeCount={activeCount}
-          completedCount={completedCount}
+          summaryText={`${items.length} total items`}
+          activeCount={counts.tasks.activeCount + counts.routines.activeCount}
+          completedCount={
+            counts.tasks.completedCount + counts.routines.completedCount
+          }
           categoryCount={categoryOptions.length}
           recurringCount={recurringCount}
         />
@@ -377,21 +469,124 @@ export function UnifiedList() {
         onReset={handleResetFilters}
       />
 
-      <ItemsView
-        isMobile={isMobile}
-        summaryText={summaryText}
-        prioritizedItems={prioritizedItems}
-        displayGroups={displayGroups}
-        categoryMap={categoryMap}
-        categoryOptions={categoryOptions}
-        derivedStatuses={derivedStatuses}
-        updateItemDetails={updateItemDetails}
-        toggleItemCompletion={toggleItemCompletion}
-        deleteItem={deleteItem}
-        emptyStateContent={emptyStateContent}
-        tableSortState={tableSortState}
-        onTableSortChange={handleTableSortChange}
-      />
+      {isMobile ? (
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) =>
+            setActiveTab(value === "routines" ? "routines" : "tasks")
+          }
+          className="space-y-4"
+        >
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="tasks">Tasks</TabsTrigger>
+            <TabsTrigger value="routines">Routines</TabsTrigger>
+          </TabsList>
+          <TabsContent value="tasks">
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Tasks</h2>
+                <p className="text-xs text-muted-foreground">
+                  {summaryTextTasks}
+                </p>
+              </div>
+              <ItemsView
+                isMobile={isMobile}
+                currentTime={timeMarker}
+                summaryText={summaryTextTasks}
+                prioritizedItems={taskView.prioritized}
+                displayGroups={taskView.groupedItems}
+                categoryMap={categoryMap}
+                categoryOptions={categoryOptions}
+                derivedStatuses={derivedStatuses}
+                updateItemDetails={updateItemDetails}
+                toggleItemCompletion={toggleItemCompletion}
+                deleteItem={deleteItem}
+                emptyStateContent={emptyStateContent}
+                tableSortState={taskView.tableSortState}
+                onTableSortChange={handleTableSortChange}
+              />
+            </section>
+          </TabsContent>
+          <TabsContent value="routines">
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Routines</h2>
+                <p className="text-xs text-muted-foreground">
+                  {summaryTextRoutines}
+                </p>
+              </div>
+              <ItemsView
+                isMobile={isMobile}
+                currentTime={timeMarker}
+                summaryText={summaryTextRoutines}
+                prioritizedItems={routineView.prioritized}
+                displayGroups={routineView.groupedItems}
+                categoryMap={categoryMap}
+                categoryOptions={categoryOptions}
+                derivedStatuses={derivedStatuses}
+                updateItemDetails={updateItemDetails}
+                toggleItemCompletion={toggleItemCompletion}
+                deleteItem={deleteItem}
+                emptyStateContent={emptyStateContent}
+                tableSortState={routineView.tableSortState}
+                onTableSortChange={handleTableSortChange}
+              />
+            </section>
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <div className="grid grid-cols-2 gap-6">
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Tasks</h2>
+              <p className="text-xs text-muted-foreground">
+                {summaryTextTasks}
+              </p>
+            </div>
+            <ItemsView
+              isMobile={isMobile}
+              currentTime={timeMarker}
+              summaryText={summaryTextTasks}
+              prioritizedItems={taskView.prioritized}
+              displayGroups={taskView.groupedItems}
+              categoryMap={categoryMap}
+              categoryOptions={categoryOptions}
+              derivedStatuses={derivedStatuses}
+              updateItemDetails={updateItemDetails}
+              toggleItemCompletion={toggleItemCompletion}
+              deleteItem={deleteItem}
+              emptyStateContent={emptyStateContent}
+              tableSortState={taskView.tableSortState}
+              onTableSortChange={handleTableSortChange}
+            />
+          </section>
+
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Routines</h2>
+              <p className="text-xs text-muted-foreground">
+                {summaryTextRoutines}
+              </p>
+            </div>
+            <ItemsView
+              isMobile={isMobile}
+              currentTime={timeMarker}
+              summaryText={summaryTextRoutines}
+              prioritizedItems={routineView.prioritized}
+              displayGroups={routineView.groupedItems}
+              categoryMap={categoryMap}
+              categoryOptions={categoryOptions}
+              derivedStatuses={derivedStatuses}
+              updateItemDetails={updateItemDetails}
+              toggleItemCompletion={toggleItemCompletion}
+              deleteItem={deleteItem}
+              emptyStateContent={emptyStateContent}
+              tableSortState={routineView.tableSortState}
+              onTableSortChange={handleTableSortChange}
+            />
+          </section>
+        </div>
+      )}
     </div>
   );
 }

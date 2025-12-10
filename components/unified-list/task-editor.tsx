@@ -9,7 +9,7 @@ import {
   type SetStateAction,
 } from "react";
 
-import type { ListItem, RecurrenceType, TaskPriority } from "@/types";
+import type { ItemKind, ListItem, RecurrenceType, TaskPriority } from "@/types";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +43,7 @@ interface TaskEditorProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   item: ListItem | null;
+  variant?: ItemKind;
   categoryOptions: CategoryOption[];
   onSave: (
     itemId: string,
@@ -80,6 +81,7 @@ const getInitialState = (item: ListItem | null): FormState => ({
 
 function TaskEditorForm({
   item,
+  variant = "task",
   formState,
   setFormState,
   onSubmit,
@@ -87,6 +89,7 @@ function TaskEditorForm({
   categoryOptions,
 }: {
   item: ListItem | null;
+  variant?: ItemKind;
   formState: FormState;
   setFormState: Dispatch<SetStateAction<FormState>>;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -94,6 +97,10 @@ function TaskEditorForm({
   categoryOptions: CategoryOption[];
 }) {
   const canEdit = Boolean(item);
+  const recurrenceChoices =
+    variant === "routine"
+      ? recurrenceOptions.filter((option) => option.value !== "none")
+      : recurrenceOptions.filter((option) => option.value === "none");
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
@@ -182,7 +189,11 @@ function TaskEditorForm({
             <Select
               value={formState.recurrenceType}
               onValueChange={(value: RecurrenceType) =>
-                setFormState((prev) => ({ ...prev, recurrenceType: value }))
+                setFormState((prev) => ({
+                  ...prev,
+                  recurrenceType:
+                    variant === "routine" ? value : ("none" as RecurrenceType),
+                }))
               }
               disabled={!canEdit}
             >
@@ -190,7 +201,7 @@ function TaskEditorForm({
                 <SelectValue placeholder="Select cadence" />
               </SelectTrigger>
               <SelectContent>
-                {recurrenceOptions.map((option) => (
+                {recurrenceChoices.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     <div>
                       <p className="font-medium">{option.label}</p>
@@ -202,7 +213,7 @@ function TaskEditorForm({
                 ))}
               </SelectContent>
             </Select>
-            {formState.recurrenceType !== "none" && (
+            {variant === "routine" && formState.recurrenceType !== "none" && (
               <Input
                 type="number"
                 min="1"
@@ -236,6 +247,7 @@ export function TaskEditor({
   isOpen,
   onOpenChange,
   item,
+  variant = "task",
   categoryOptions,
   onSave,
   isMobile,
@@ -243,6 +255,11 @@ export function TaskEditor({
   const [formState, setFormState] = useState<FormState>(() =>
     getInitialState(item),
   );
+  const effectiveVariant: ItemKind =
+    variant ??
+    (item && (item.item_kind === "routine" || item.recurrence_type !== "none")
+      ? "routine"
+      : "task");
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -260,14 +277,18 @@ export function TaskEditor({
         return;
       }
       setIsSaving(true);
+      const recurrenceType =
+        effectiveVariant === "routine" ? formState.recurrenceType : "none";
+      const recurrenceInterval =
+        effectiveVariant === "routine" ? formState.recurrenceInterval : 1;
       const success = await onSave(item.id, {
         title: formState.title,
         category: formState.category,
         priority: formState.priority,
         hours: formState.hours,
         recurrence: {
-          type: formState.recurrenceType,
-          interval: formState.recurrenceInterval,
+          type: recurrenceType,
+          interval: recurrenceInterval,
         },
       });
       setIsSaving(false);
@@ -275,7 +296,7 @@ export function TaskEditor({
         onOpenChange(false);
       }
     },
-    [formState, item, onOpenChange, onSave],
+    [effectiveVariant, formState, item, onOpenChange, onSave],
   );
 
   if (isMobile) {
@@ -283,14 +304,19 @@ export function TaskEditor({
       <Drawer open={isOpen} onOpenChange={onOpenChange} direction="bottom">
         <DrawerContent className="max-h-[80vh] overflow-y-auto">
           <DrawerHeader>
-            <DrawerTitle>Edit task</DrawerTitle>
+            <DrawerTitle>
+              {effectiveVariant === "routine" ? "Edit routine" : "Edit task"}
+            </DrawerTitle>
             <DrawerDescription>
-              Adjust details, cadence, and estimates in one place.
+              {effectiveVariant === "routine"
+                ? "Adjust cadence and details while keeping your streaks sane."
+                : "Adjust details, cadence, and estimates in one place."}
             </DrawerDescription>
           </DrawerHeader>
           <div className="px-4 pb-6">
             <TaskEditorForm
               item={item}
+              variant={effectiveVariant}
               formState={formState}
               setFormState={setFormState}
               onSubmit={handleSubmit}
@@ -317,13 +343,18 @@ export function TaskEditor({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Edit task</DialogTitle>
+          <DialogTitle>
+            {effectiveVariant === "routine" ? "Edit routine" : "Edit task"}
+          </DialogTitle>
           <DialogDescription>
-            Keep everything up to date without leaving your flow.
+            {effectiveVariant === "routine"
+              ? "Tune cadence and details without losing your streak."
+              : "Keep everything up to date without leaving your flow."}
           </DialogDescription>
         </DialogHeader>
         <TaskEditorForm
           item={item}
+          variant={effectiveVariant}
           formState={formState}
           setFormState={setFormState}
           onSubmit={handleSubmit}
