@@ -395,9 +395,7 @@ export function UnifiedList() {
       direction="bottom"
     >
       <DrawerTrigger asChild>
-        <Button variant="outline" size="sm">
-          Create routine
-        </Button>
+        <Button size="sm">Create routine</Button>
       </DrawerTrigger>
       <DrawerContent className="max-h-[85vh] overflow-hidden">
         <DrawerHeader className="sr-only">
@@ -409,9 +407,7 @@ export function UnifiedList() {
   ) : (
     <Dialog open={isCreateRoutineOpen} onOpenChange={setIsCreateRoutineOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          Create routine
-        </Button>
+        <Button size="sm">Create routine</Button>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
@@ -428,10 +424,6 @@ export function UnifiedList() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap gap-2">
-          {createTaskLauncher}
-          {createRoutineLauncher}
-        </div>
         <div className="flex justify-end">
           <Button
             variant="outline"
@@ -440,6 +432,10 @@ export function UnifiedList() {
           >
             {showInsights ? "Hide task insights" : "Show task insights"}
           </Button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {createRoutineLauncher}
+          {createTaskLauncher}
         </div>
       </div>
 
