@@ -44,7 +44,7 @@ const ContextMenuSubContent = React.forwardRef<
   <ContextMenuPrimitive.SubContent
     ref={ref}
     className={cn(
-      "bg-popover text-popover-foreground rounded-md border p-1 shadow-md",
+      "bg-popover/50 backdrop-blur text-popover-foreground rounded-md border p-1 shadow-md",
       className,
     )}
     {...props}
@@ -60,7 +60,7 @@ const ContextMenuContent = React.forwardRef<
     <ContextMenuPrimitive.Content
       ref={ref}
       className={cn(
-        "bg-popover text-popover-foreground animate-in fade-in-0 zoom-in-95 rounded-md border p-1 shadow-md",
+        "bg-popover/50 backdrop-blur text-popover-foreground animate-in fade-in-0 zoom-in-95 rounded-md border p-1 shadow-md",
         className,
       )}
       {...props}
