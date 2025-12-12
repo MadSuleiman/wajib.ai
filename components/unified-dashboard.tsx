@@ -68,7 +68,7 @@ export default function UnifiedDashboard({
     >
       <div className="w-full px-4 py-4 md:px-8">
         <motion.section
-          className="mx-auto max-w-6xl"
+          className="mx-auto max-w-full"
           variants={container}
           initial="hidden"
           animate="show"
