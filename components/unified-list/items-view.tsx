@@ -4,6 +4,11 @@ import {
   differenceInCalendarMonths,
   differenceInCalendarWeeks,
   differenceInCalendarYears,
+  endOfDay,
+  endOfMonth,
+  endOfWeek,
+  endOfYear,
+  formatDistanceStrict,
   formatDistanceToNow,
 } from "date-fns";
 import { CheckCircle2, Circle, Pencil, Trash2 } from "lucide-react";
@@ -33,6 +38,7 @@ import {
   getLocalTimeZone,
 } from "@/lib/timezone";
 import { TaskEditor } from "./task-editor";
+import { RoutineEditor } from "./routine-editor";
 
 const formatAddedDescription = (createdAt: string, timeZone: string) => {
   const absolute = formatLocalDateTime(createdAt, timeZone);
@@ -44,6 +50,7 @@ const formatAddedDescription = (createdAt: string, timeZone: string) => {
 
 type ItemsViewProps = {
   isMobile: boolean;
+  variant: "task" | "routine";
   currentTime: number;
   summaryText: string;
   prioritizedItems: ListItem[];
@@ -70,6 +77,7 @@ type ItemsViewProps = {
 
 export function ItemsView({
   isMobile,
+  variant,
   currentTime,
   summaryText,
   prioritizedItems,
@@ -84,9 +92,6 @@ export function ItemsView({
   tableSortState,
   onTableSortChange,
 }: ItemsViewProps) {
-  const [editorVariant, setEditorVariant] = useState<"task" | "routine">(
-    "task",
-  );
   const userTimeZone = useMemo(() => getLocalTimeZone(), []);
   const timeZoneDisplay = useMemo(
     () => formatTimeZoneDisplay(userTimeZone),
@@ -102,23 +107,21 @@ export function ItemsView({
     [userTimeZone],
   );
 
-  const [editorTask, setEditorTask] = useState<ListItem | null>(null);
+  const [editorItem, setEditorItem] = useState<ListItem | null>(null);
+  const [editorKind, setEditorKind] = useState<"task" | "routine">("task");
   const [isEditorOpen, setIsEditorOpen] = useState(false);
 
   const handleOpenEditor = useCallback((item: ListItem) => {
-    setEditorTask(item);
-    setEditorVariant(
-      item.item_kind === "routine" || item.recurrence_type !== "none"
-        ? "routine"
-        : "task",
-    );
+    setEditorItem(item);
+    setEditorKind(item.item_kind === "routine" ? "routine" : "task");
     setIsEditorOpen(true);
   }, []);
 
   const handleEditorOpenChange = useCallback((open: boolean) => {
     setIsEditorOpen(open);
     if (!open) {
-      setEditorTask(null);
+      setEditorItem(null);
+      setEditorKind("task");
     }
   }, []);
 
@@ -134,31 +137,23 @@ export function ItemsView({
       const nextDate = new Date(nextTs);
       switch (item.recurrence_type) {
         case "daily": {
-          const daysLate = Math.max(
-            1,
-            differenceInCalendarDays(nowDate, nextDate),
-          );
+          const daysLate = differenceInCalendarDays(nowDate, nextDate);
+          if (daysLate <= 0) return "Due today";
           return `${daysLate} day${daysLate === 1 ? "" : "s"} late`;
         }
         case "weekly": {
-          const weeksLate = Math.max(
-            1,
-            differenceInCalendarWeeks(nowDate, nextDate),
-          );
+          const weeksLate = differenceInCalendarWeeks(nowDate, nextDate);
+          if (weeksLate <= 0) return "Due this week";
           return `${weeksLate} week${weeksLate === 1 ? "" : "s"} late`;
         }
         case "monthly": {
-          const monthsLate = Math.max(
-            1,
-            differenceInCalendarMonths(nowDate, nextDate),
-          );
+          const monthsLate = differenceInCalendarMonths(nowDate, nextDate);
+          if (monthsLate <= 0) return "Due this month";
           return `${monthsLate} month${monthsLate === 1 ? "" : "s"} late`;
         }
         case "yearly": {
-          const yearsLate = Math.max(
-            1,
-            differenceInCalendarYears(nowDate, nextDate),
-          );
+          const yearsLate = differenceInCalendarYears(nowDate, nextDate);
+          if (yearsLate <= 0) return "Due this year";
           return `${yearsLate} year${yearsLate === 1 ? "" : "s"} late`;
         }
         default:
@@ -166,6 +161,55 @@ export function ItemsView({
       }
     },
     [currentTime],
+  );
+
+  const getRoutineTiming = useCallback(
+    (
+      item: ListItem,
+    ): { label: "Time left" | "Time until next"; value: string } | null => {
+      if (item.recurrence_type === "none") return null;
+
+      const status = derivedStatuses.get(item.id) ?? "active";
+      const nowDate = new Date(currentTime);
+
+      if (status === "active") {
+        let periodEnd: Date;
+        switch (item.recurrence_type) {
+          case "weekly":
+            periodEnd = endOfWeek(nowDate, { weekStartsOn: 1 });
+            break;
+          case "monthly":
+            periodEnd = endOfMonth(nowDate);
+            break;
+          case "yearly":
+            periodEnd = endOfYear(nowDate);
+            break;
+          case "daily":
+          default:
+            periodEnd = endOfDay(nowDate);
+            break;
+        }
+        return {
+          label: "Time left",
+          value: formatDistanceStrict(periodEnd, nowDate),
+        };
+      }
+
+      const nextTs = item.recurrence_next_occurrence
+        ? Date.parse(item.recurrence_next_occurrence)
+        : Number.NaN;
+      if (Number.isNaN(nextTs)) {
+        return { label: "Time until next", value: "Not scheduled" };
+      }
+
+      return {
+        label: "Time until next",
+        value: formatDistanceStrict(new Date(nextTs), nowDate, {
+          addSuffix: true,
+        }),
+      };
+    },
+    [currentTime, derivedStatuses],
   );
 
   return (
@@ -188,6 +232,7 @@ export function ItemsView({
             formatNextOccurrence={formatNextOccurrence}
             onEditTask={handleOpenEditor}
             getLateLabel={getLateLabel}
+            getRoutineTiming={getRoutineTiming}
           />
         ) : (
           <div className="rounded-lg border bg-card/40">
@@ -196,6 +241,7 @@ export function ItemsView({
         )
       ) : (
         <DesktopTable
+          variant={variant}
           items={prioritizedItems}
           groups={displayGroups}
           categoryMap={categoryMap}
@@ -209,23 +255,35 @@ export function ItemsView({
           formatNextOccurrence={formatNextOccurrence}
           onEditTask={handleOpenEditor}
           getLateLabel={getLateLabel}
+          getRoutineTiming={getRoutineTiming}
         />
       )}
 
-      <TaskEditor
-        isOpen={isEditorOpen}
-        onOpenChange={handleEditorOpenChange}
-        item={editorTask}
-        variant={editorVariant}
-        categoryOptions={categoryOptions}
-        onSave={updateItemDetails}
-        isMobile={isMobile}
-      />
+      {editorKind === "routine" ? (
+        <RoutineEditor
+          isOpen={isEditorOpen}
+          onOpenChange={handleEditorOpenChange}
+          item={editorItem}
+          categoryOptions={categoryOptions}
+          onSave={updateItemDetails}
+          isMobile={isMobile}
+        />
+      ) : (
+        <TaskEditor
+          isOpen={isEditorOpen}
+          onOpenChange={handleEditorOpenChange}
+          item={editorItem}
+          categoryOptions={categoryOptions}
+          onSave={updateItemDetails}
+          isMobile={isMobile}
+        />
+      )}
     </div>
   );
 }
 
 type DesktopTableProps = {
+  variant: "task" | "routine";
   items: ListItem[];
   groups: ItemGroup[];
   categoryMap: Map<string, CategoryOption>;
@@ -239,9 +297,13 @@ type DesktopTableProps = {
   formatNextOccurrence: (value: string | null) => string;
   onEditTask: (item: ListItem) => void;
   getLateLabel: (item: ListItem) => string | null;
+  getRoutineTiming: (
+    item: ListItem,
+  ) => { label: "Time left" | "Time until next"; value: string } | null;
 };
 
 function DesktopTable({
+  variant,
   items,
   groups,
   categoryMap,
@@ -255,9 +317,10 @@ function DesktopTable({
   formatNextOccurrence,
   onEditTask,
   getLateLabel,
+  getRoutineTiming,
 }: DesktopTableProps) {
   const columns = useMemo<DataTableColumn<ListItem>[]>(() => {
-    return [
+    const columnsLocal: DataTableColumn<ListItem>[] = [
       {
         id: "title",
         header: "Item",
@@ -315,11 +378,15 @@ function DesktopTable({
           );
         },
       },
-      {
+    ];
+
+    if (variant === "routine") {
+      columnsLocal.push({
         id: "recurrence",
         header: "Recurrence",
         cell: (item) => {
           const lateLabel = getLateLabel(item);
+          const timing = getRoutineTiming(item);
           return (
             <div className="flex flex-col text-sm">
               <span className="font-medium">
@@ -332,6 +399,11 @@ function DesktopTable({
                   ? "Doesn't repeat"
                   : `Next: ${formatNextOccurrence(item.recurrence_next_occurrence)}`}
               </span>
+              {timing ? (
+                <span className="text-xs text-muted-foreground">
+                  {timing.label}: {timing.value}
+                </span>
+              ) : null}
               {lateLabel ? (
                 <span className="text-xs font-semibold text-destructive">
                   {lateLabel}
@@ -340,7 +412,10 @@ function DesktopTable({
             </div>
           );
         },
-      },
+      });
+    }
+
+    columnsLocal.push(
       {
         id: "priority",
         header: "Priority",
@@ -404,14 +479,18 @@ function DesktopTable({
           </div>
         ),
       },
-    ];
+    );
+
+    return columnsLocal;
   }, [
+    variant,
     categoryMap,
     deleteItem,
     derivedStatuses,
     formatAdded,
     formatNextOccurrence,
     getLateLabel,
+    getRoutineTiming,
     onEditTask,
     toggleItemCompletion,
   ]);
@@ -426,6 +505,7 @@ function DesktopTable({
       rowWrapper={(row, item, rowKey) => {
         const isCompleted =
           (derivedStatuses.get(item.id) ?? "active") === "completed";
+        const itemLabel = item.item_kind === "routine" ? "routine" : "task";
         return (
           <ContextMenu key={rowKey}>
             <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
@@ -442,7 +522,7 @@ function DesktopTable({
                   onEditTask(item);
                 }}
               >
-                Edit task
+                Edit {itemLabel}
               </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem
@@ -451,7 +531,7 @@ function DesktopTable({
                   void deleteItem(item.id);
                 }}
               >
-                Delete task
+                Delete {itemLabel}
               </ContextMenuItem>
             </ContextMenuContent>
           </ContextMenu>
@@ -471,6 +551,9 @@ type MobileListProps = {
   formatNextOccurrence: (value: string | null) => string;
   onEditTask: (item: ListItem) => void;
   getLateLabel: (item: ListItem) => string | null;
+  getRoutineTiming: (
+    item: ListItem,
+  ) => { label: "Time left" | "Time until next"; value: string } | null;
 };
 
 function MobileList({
@@ -483,6 +566,7 @@ function MobileList({
   formatNextOccurrence,
   onEditTask,
   getLateLabel,
+  getRoutineTiming,
 }: MobileListProps) {
   return (
     <div className="space-y-5">
@@ -502,6 +586,7 @@ function MobileList({
                 const isCompleted =
                   (derivedStatuses.get(item.id) ?? "active") === "completed";
                 const lateLabel = getLateLabel(item);
+                const timing = getRoutineTiming(item);
 
                 return (
                   <div
@@ -571,6 +656,11 @@ function MobileList({
                             item.recurrence_next_occurrence,
                           )}
                         </p>
+                        {timing ? (
+                          <p className="text-muted-foreground">
+                            {timing.label}: {timing.value}
+                          </p>
+                        ) : null}
                         {lateLabel ? (
                           <p className="font-semibold text-destructive">
                             {lateLabel}

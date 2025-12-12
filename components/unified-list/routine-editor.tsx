@@ -9,7 +9,7 @@ import {
   type SetStateAction,
 } from "react";
 
-import type { ListItem, TaskPriority } from "@/types";
+import type { ListItem, RecurrenceType, TaskPriority } from "@/types";
 import {
   Dialog,
   DialogContent,
@@ -37,8 +37,9 @@ import {
 } from "@/components/ui/select";
 import type { CategoryOption } from "./types";
 import { priorityIcons, priorityLabels } from "@/components/list-utils";
+import { recurrenceOptions } from "./constants";
 
-interface TaskEditorProps {
+interface RoutineEditorProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   item: ListItem | null;
@@ -50,6 +51,7 @@ interface TaskEditorProps {
       priority?: TaskPriority;
       hours?: string | null;
       category?: string;
+      recurrence?: { type: RecurrenceType; interval: number };
     },
   ) => Promise<boolean>;
   isMobile: boolean;
@@ -60,6 +62,8 @@ interface FormState {
   category: string;
   priority: TaskPriority;
   hours: string;
+  recurrenceType: RecurrenceType;
+  recurrenceInterval: number;
 }
 
 const getInitialState = (item: ListItem | null): FormState => ({
@@ -70,9 +74,11 @@ const getInitialState = (item: ListItem | null): FormState => ({
     typeof item?.estimated_hours === "number"
       ? item.estimated_hours.toString()
       : "",
+  recurrenceType: item?.recurrence_type ?? "daily",
+  recurrenceInterval: item?.recurrence_interval ?? 1,
 });
 
-function TaskEditorForm({
+function RoutineEditorForm({
   item,
   formState,
   setFormState,
@@ -88,21 +94,24 @@ function TaskEditorForm({
   categoryOptions: CategoryOption[];
 }) {
   const canEdit = Boolean(item);
+  const recurrenceChoices = recurrenceOptions.filter(
+    (option) => option.value !== "none",
+  );
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
       <div className="space-y-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium" htmlFor="task-title">
+          <label className="text-sm font-medium" htmlFor="routine-title">
             Title
           </label>
           <Input
-            id="task-title"
+            id="routine-title"
             value={formState.title}
             onChange={(event) =>
               setFormState((prev) => ({ ...prev, title: event.target.value }))
             }
-            placeholder="What do you need to get done?"
+            placeholder="What do you need to keep up with?"
             required
             disabled={!canEdit}
           />
@@ -171,6 +180,50 @@ function TaskEditorForm({
               disabled={!canEdit}
             />
           </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Recurrence</label>
+            <Select
+              value={formState.recurrenceType}
+              onValueChange={(value: RecurrenceType) =>
+                setFormState((prev) => ({ ...prev, recurrenceType: value }))
+              }
+              disabled={!canEdit}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select cadence" />
+              </SelectTrigger>
+              <SelectContent>
+                {recurrenceChoices.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    <div>
+                      <p className="font-medium">{option.label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {option.description}
+                      </p>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {formState.recurrenceType !== "none" && (
+              <Input
+                type="number"
+                min="1"
+                value={formState.recurrenceInterval.toString()}
+                onChange={(event) =>
+                  setFormState((prev) => ({
+                    ...prev,
+                    recurrenceInterval: Math.max(
+                      1,
+                      Number.parseInt(event.target.value, 10) || 1,
+                    ),
+                  }))
+                }
+                placeholder="Interval"
+                disabled={!canEdit}
+              />
+            )}
+          </div>
         </div>
       </div>
       <div className="flex flex-col gap-2 md:flex-row md:justify-end">
@@ -182,14 +235,14 @@ function TaskEditorForm({
   );
 }
 
-export function TaskEditor({
+export function RoutineEditor({
   isOpen,
   onOpenChange,
   item,
   categoryOptions,
   onSave,
   isMobile,
-}: TaskEditorProps) {
+}: RoutineEditorProps) {
   const [formState, setFormState] = useState<FormState>(() =>
     getInitialState(item),
   );
@@ -197,7 +250,7 @@ export function TaskEditor({
 
   useEffect(() => {
     if (item) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- rehydrate form values when switching tasks
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- rehydrate form values when switching items
       setFormState(getInitialState(item));
     }
   }, [item]);
@@ -210,12 +263,23 @@ export function TaskEditor({
         return;
       }
       setIsSaving(true);
-      const updates: Parameters<TaskEditorProps["onSave"]>[1] = {
+
+      const updates: Parameters<RoutineEditorProps["onSave"]>[1] = {
         title: formState.title,
         category: formState.category,
         priority: formState.priority,
         hours: formState.hours,
       };
+
+      if (
+        formState.recurrenceType !== item.recurrence_type ||
+        formState.recurrenceInterval !== (item.recurrence_interval ?? 1)
+      ) {
+        updates.recurrence = {
+          type: formState.recurrenceType,
+          interval: formState.recurrenceInterval,
+        };
+      }
 
       const success = await onSave(item.id, updates);
       setIsSaving(false);
@@ -231,13 +295,13 @@ export function TaskEditor({
       <Drawer open={isOpen} onOpenChange={onOpenChange} direction="bottom">
         <DrawerContent className="max-h-[80vh] overflow-y-auto">
           <DrawerHeader>
-            <DrawerTitle>Edit task</DrawerTitle>
+            <DrawerTitle>Edit routine</DrawerTitle>
             <DrawerDescription>
-              Adjust details and estimates in one place.
+              Adjust cadence and details while keeping your streaks sane.
             </DrawerDescription>
           </DrawerHeader>
           <div className="px-4 pb-6">
-            <TaskEditorForm
+            <RoutineEditorForm
               item={item}
               formState={formState}
               setFormState={setFormState}
@@ -265,12 +329,12 @@ export function TaskEditor({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Edit task</DialogTitle>
+          <DialogTitle>Edit routine</DialogTitle>
           <DialogDescription>
-            Keep everything up to date without leaving your flow.
+            Tune cadence and details without losing your streak.
           </DialogDescription>
         </DialogHeader>
-        <TaskEditorForm
+        <RoutineEditorForm
           item={item}
           formState={formState}
           setFormState={setFormState}

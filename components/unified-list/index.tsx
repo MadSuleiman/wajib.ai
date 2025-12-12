@@ -167,11 +167,17 @@ export function UnifiedList() {
   }, [items]);
 
   const filterAndSortItems = useCallback(
-    (input: ListItem[]) => {
+    (input: ListItem[], options?: { viewKind?: "task" | "routine" }) => {
+      const effectiveStatusFilter =
+        options?.viewKind === "routine" && statusFilter === "active"
+          ? "all"
+          : statusFilter;
       const filtered = input.filter((item) => {
         const derivedStatus = derivedStatuses.get(item.id) ?? "active";
         const matchesStatus =
-          statusFilter === "all" ? true : statusFilter === derivedStatus;
+          effectiveStatusFilter === "all"
+            ? true
+            : effectiveStatusFilter === derivedStatus;
 
         const matchesCategory =
           categoryFilter === "all" ? true : item.category === categoryFilter;
@@ -223,11 +229,11 @@ export function UnifiedList() {
   );
 
   const taskView = useMemo(
-    () => filterAndSortItems(tasks),
+    () => filterAndSortItems(tasks, { viewKind: "task" }),
     [filterAndSortItems, tasks],
   );
   const routineView = useMemo(
-    () => filterAndSortItems(routines),
+    () => filterAndSortItems(routines, { viewKind: "routine" }),
     [filterAndSortItems, routines],
   );
 
@@ -487,6 +493,7 @@ export function UnifiedList() {
               </div>
               <ItemsView
                 isMobile={isMobile}
+                variant="task"
                 currentTime={timeMarker}
                 summaryText={summaryTextTasks}
                 prioritizedItems={taskView.prioritized}
@@ -513,6 +520,7 @@ export function UnifiedList() {
               </div>
               <ItemsView
                 isMobile={isMobile}
+                variant="routine"
                 currentTime={timeMarker}
                 summaryText={summaryTextRoutines}
                 prioritizedItems={routineView.prioritized}
@@ -541,6 +549,7 @@ export function UnifiedList() {
             </div>
             <ItemsView
               isMobile={isMobile}
+              variant="task"
               currentTime={timeMarker}
               summaryText={summaryTextTasks}
               prioritizedItems={taskView.prioritized}
@@ -566,6 +575,7 @@ export function UnifiedList() {
             </div>
             <ItemsView
               isMobile={isMobile}
+              variant="routine"
               currentTime={timeMarker}
               summaryText={summaryTextRoutines}
               prioritizedItems={routineView.prioritized}
