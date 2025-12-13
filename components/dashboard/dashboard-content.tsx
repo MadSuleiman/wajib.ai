@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Filter } from "lucide-react";
 
-import { useSupabase } from "@/components/supabase-provider";
+import { useSupabase } from "@/components/dashboard/supabase-provider";
 import { useCreationDialogs } from "@/components/dashboard/creation-dialogs-context";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ import {
   sortConfigFromValue,
   type ItemGroupMode,
   type SortOptionValue,
-} from "@/components/list-utils";
+} from "@/components/dashboard/list-utils";
 import type { Category, ListItem, RecurrenceType } from "@/types";
 import type { DataTableSortState } from "@/components/ui/data-table";
 

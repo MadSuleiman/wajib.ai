@@ -36,7 +36,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { CategoryOption } from "./types";
-import { priorityIcons, priorityLabels } from "@/components/list-utils";
+import {
+  priorityIcons,
+  priorityLabels,
+} from "@/components/dashboard/list-utils";
 import { recurrenceOptions } from "./constants";
 
 interface RoutineEditorProps {

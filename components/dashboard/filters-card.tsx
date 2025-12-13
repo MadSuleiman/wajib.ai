@@ -1,5 +1,8 @@
 import type React from "react";
-import type { ItemGroupMode, SortOptionValue } from "@/components/list-utils";
+import type {
+  ItemGroupMode,
+  SortOptionValue,
+} from "@/components/dashboard/list-utils";
 import { RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";

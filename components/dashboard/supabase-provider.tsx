@@ -13,7 +13,7 @@ import { addDays, addMonths, addWeeks, addYears } from "date-fns";
 import { toast } from "sonner";
 
 import { createClientSupabaseClient } from "@/lib/supabase-client";
-import { sortItemsByPriority } from "@/components/list-utils";
+import { sortItemsByPriority } from "@/components/dashboard/list-utils";
 import { toLocalMidnight } from "@/lib/timezone";
 import type {
   Category,

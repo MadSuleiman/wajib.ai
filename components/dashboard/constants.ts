@@ -2,7 +2,7 @@ import type {
   ItemGroupMode,
   SortKey,
   SortOptionValue,
-} from "@/components/list-utils";
+} from "@/components/dashboard/list-utils";
 import type { RecurrenceType } from "@/types";
 
 import type { StatusFilter } from "./types";

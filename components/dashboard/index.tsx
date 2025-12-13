@@ -3,9 +3,9 @@
 import { useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 
-import { SupabaseProvider } from "@/components/supabase-provider";
-import { SettingsPanel } from "@/components/settings-panel";
 import { DashboardContent } from "@/components/dashboard/dashboard-content";
+import { SettingsPanel } from "@/components/dashboard/settings-panel";
+import { SupabaseProvider } from "@/components/dashboard/supabase-provider";
 import type { Category, ListItem } from "@/types";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {

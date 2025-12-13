@@ -4,8 +4,8 @@ import { Inter } from "next/font/google";
 import { Suspense } from "react";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
-import { ThemeProvider } from "@/components/theme-provider";
-import { ZoomPrevention } from "@/components/anti-zoom";
+import { ThemeProvider } from "@/components/app/theme-provider";
+import { ZoomPrevention } from "@/components/app/anti-zoom";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-arabicStyle" });
 

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import type { Category, ListItem } from "@/types";
 import { routineRowToListItem, taskRowToListItem } from "@/types/supabase";
-import { sortItemsByPriority } from "@/components/list-utils";
+import { sortItemsByPriority } from "@/components/dashboard/list-utils";
 import Dashboard from "@/components/dashboard";
 import type { DashboardView } from "@/hooks/use-dashboard-view";
 

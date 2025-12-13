@@ -3,7 +3,10 @@ import { useCallback, useMemo, useState } from "react";
 import { Check, ChevronsUpDown, Loader2, Plus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { priorityIcons, priorityLabels } from "@/components/list-utils";
+import {
+  priorityIcons,
+  priorityLabels,
+} from "@/components/dashboard/list-utils";
 import type { RecurrenceType, TaskPriority } from "@/types";
 import { Button } from "@/components/ui/button";
 import {

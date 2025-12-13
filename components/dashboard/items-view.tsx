@@ -14,7 +14,10 @@ import {
 import { CheckCircle2, Circle, Pencil, Trash2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { priorityIcons, priorityLabels } from "@/components/list-utils";
+import {
+  priorityIcons,
+  priorityLabels,
+} from "@/components/dashboard/list-utils";
 import type { ListItem, TaskPriority } from "@/types";
 import {
   DataTable,
