@@ -16,8 +16,6 @@ import {
   Carousel,
   CarouselContent,
   CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
 } from "@/components/ui/carousel";
 
 type InsightsGridProps = {
@@ -198,8 +196,6 @@ export function InsightsGrid({
             </CarouselItem>
           ))}
         </CarouselContent>
-        <CarouselPrevious className="hidden md:flex" />
-        <CarouselNext className="hidden md:flex" />
       </Carousel>
     </section>
   );

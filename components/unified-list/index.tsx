@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Filter } from "lucide-react";
 
 import { useSupabase } from "@/components/supabase-provider";
+import { useUnifiedListControls } from "@/components/unified-list/controls-context";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,14 +13,12 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Drawer,
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
-  DrawerTrigger,
 } from "@/components/ui/drawer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -109,6 +108,12 @@ export function UnifiedList() {
     deleteItem,
   } = supabaseContext.items;
   const categories: Category[] = supabaseContext.categories;
+  const {
+    isCreateTaskOpen,
+    setIsCreateTaskOpen,
+    isCreateRoutineOpen,
+    setIsCreateRoutineOpen,
+  } = useUnifiedListControls();
 
   const [groupMode, setGroupMode] = useState<ItemGroupMode>("month");
   const [sortValue, setSortValue] = useState<SortOptionValue>(defaultSortValue);
@@ -116,8 +121,7 @@ export function UnifiedList() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [timeMarker, setTimeMarker] = useState(() => Date.now());
   const [showInsights, setShowInsights] = useState(false);
-  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
-  const [isCreateRoutineOpen, setIsCreateRoutineOpen] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [activeTab, setActiveTab] = useState<"tasks" | "routines">("tasks");
 
   useEffect(() => {
@@ -324,7 +328,7 @@ export function UnifiedList() {
       }
       return success;
     },
-    [addItem],
+    [addItem, setIsCreateTaskOpen],
   );
 
   const handleAddRoutine = useCallback(
@@ -338,7 +342,7 @@ export function UnifiedList() {
       }
       return success;
     },
-    [addItem],
+    [addItem, setIsCreateRoutineOpen],
   );
 
   const newTaskForm = (
@@ -367,9 +371,6 @@ export function UnifiedList() {
       onOpenChange={setIsCreateTaskOpen}
       direction="bottom"
     >
-      <DrawerTrigger asChild>
-        <Button size="sm">Create task</Button>
-      </DrawerTrigger>
       <DrawerContent className="max-h-[85vh] overflow-hidden">
         <DrawerHeader className="sr-only">
           <DrawerTitle>Create task</DrawerTitle>
@@ -379,9 +380,6 @@ export function UnifiedList() {
     </Drawer>
   ) : (
     <Dialog open={isCreateTaskOpen} onOpenChange={setIsCreateTaskOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm">Create task</Button>
-      </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create task</DialogTitle>
@@ -400,9 +398,6 @@ export function UnifiedList() {
       onOpenChange={setIsCreateRoutineOpen}
       direction="bottom"
     >
-      <DrawerTrigger asChild>
-        <Button size="sm">Create routine</Button>
-      </DrawerTrigger>
       <DrawerContent className="max-h-[85vh] overflow-hidden">
         <DrawerHeader className="sr-only">
           <DrawerTitle>Create routine</DrawerTitle>
@@ -412,9 +407,6 @@ export function UnifiedList() {
     </Drawer>
   ) : (
     <Dialog open={isCreateRoutineOpen} onOpenChange={setIsCreateRoutineOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm">Create routine</Button>
-      </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create routine</DialogTitle>
@@ -429,20 +421,24 @@ export function UnifiedList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowInsights((prev) => !prev)}
-          >
-            {showInsights ? "Hide task insights" : "Show task insights"}
-          </Button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {createRoutineLauncher}
-          {createTaskLauncher}
-        </div>
+      {createRoutineLauncher}
+      {createTaskLauncher}
+
+      <div className="flex justify-between gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowInsights((prev) => !prev)}
+        >
+          {showInsights ? "Hide task insights" : "Show task insights"}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowFilters((prev) => !prev)}
+        >
+          {showFilters ? "Hide filters" : "Show filters"}
+        </Button>
       </div>
 
       {showInsights ? (
@@ -458,18 +454,20 @@ export function UnifiedList() {
           recurringCount={recurringCount}
         />
       ) : null}
-      <FiltersCard
-        statusFilter={statusFilter}
-        onStatusChange={setStatusFilter}
-        categoryFilter={categoryFilter}
-        onCategoryChange={setCategoryFilter}
-        categoryOptions={categoryOptions}
-        groupMode={groupMode}
-        onGroupModeChange={setGroupMode}
-        sortValue={sortValue}
-        onSortValueChange={setSortValue}
-        onReset={handleResetFilters}
-      />
+      {showFilters ? (
+        <FiltersCard
+          statusFilter={statusFilter}
+          onStatusChange={setStatusFilter}
+          categoryFilter={categoryFilter}
+          onCategoryChange={setCategoryFilter}
+          categoryOptions={categoryOptions}
+          groupMode={groupMode}
+          onGroupModeChange={setGroupMode}
+          sortValue={sortValue}
+          onSortValueChange={setSortValue}
+          onReset={handleResetFilters}
+        />
+      ) : null}
 
       {isMobile ? (
         <Tabs
