@@ -3,7 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import type { Category, ListItem } from "@/types";
 import { routineRowToListItem, taskRowToListItem } from "@/types/supabase";
 import { sortItemsByPriority } from "@/components/list-utils";
-import UnifiedDashboard from "@/components/unified-dashboard";
+import Dashboard from "@/components/dashboard";
 import type { DashboardView } from "@/hooks/use-dashboard-view";
 
 export default async function Home({
@@ -41,7 +41,7 @@ export default async function Home({
     viewParam === "settings" ? "settings" : "list";
 
   return (
-    <UnifiedDashboard
+    <Dashboard
       initialItems={items}
       initialCategories={(categoriesData || []) as Category[]}
       initialView={initialView}

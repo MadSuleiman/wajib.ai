@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 
 import { SupabaseProvider } from "@/components/supabase-provider";
 import { SettingsPanel } from "@/components/settings-panel";
-import { UnifiedList } from "@/components/unified-list";
+import { DashboardContent } from "@/components/dashboard/dashboard-content";
 import type { Category, ListItem } from "@/types";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -25,7 +25,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 
-export default function UnifiedDashboard({
+export default function Dashboard({
   initialItems,
   initialCategories,
   initialView,
@@ -73,7 +73,7 @@ export default function UnifiedDashboard({
           initial="hidden"
           animate="show"
         >
-          <UnifiedList />
+          <DashboardContent />
         </motion.section>
       </div>
 

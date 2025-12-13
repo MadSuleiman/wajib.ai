@@ -3,17 +3,17 @@
 import type { ReactNode } from "react";
 import { Navigation } from "@/components/navigation";
 import { DashboardViewProvider } from "@/hooks/use-dashboard-view";
-import { UnifiedListControlsProvider } from "@/components/unified-list/controls-context";
+import { CreationDialogsProvider } from "@/components/dashboard/creation-dialogs-context";
 
 export function DashboardShell({ children }: { children: ReactNode }) {
   return (
     <DashboardViewProvider>
-      <UnifiedListControlsProvider>
+      <CreationDialogsProvider>
         <div className="flex min-h-screen flex-col">
           <Navigation />
           <main>{children}</main>
         </div>
-      </UnifiedListControlsProvider>
+      </CreationDialogsProvider>
     </DashboardViewProvider>
   );
 }

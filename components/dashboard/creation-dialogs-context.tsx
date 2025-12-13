@@ -8,21 +8,17 @@ import {
   type ReactNode,
 } from "react";
 
-type UnifiedListControlsContextValue = {
+type CreationDialogsContextValue = {
   isCreateTaskOpen: boolean;
   setIsCreateTaskOpen: (open: boolean) => void;
   isCreateRoutineOpen: boolean;
   setIsCreateRoutineOpen: (open: boolean) => void;
 };
 
-const UnifiedListControlsContext =
-  createContext<UnifiedListControlsContextValue | null>(null);
+const CreationDialogsContext =
+  createContext<CreationDialogsContextValue | null>(null);
 
-export function UnifiedListControlsProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export function CreationDialogsProvider({ children }: { children: ReactNode }) {
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
   const [isCreateRoutineOpen, setIsCreateRoutineOpen] = useState(false);
 
@@ -37,17 +33,17 @@ export function UnifiedListControlsProvider({
   );
 
   return (
-    <UnifiedListControlsContext.Provider value={value}>
+    <CreationDialogsContext.Provider value={value}>
       {children}
-    </UnifiedListControlsContext.Provider>
+    </CreationDialogsContext.Provider>
   );
 }
 
-export function useUnifiedListControls() {
-  const context = useContext(UnifiedListControlsContext);
+export function useCreationDialogs() {
+  const context = useContext(CreationDialogsContext);
   if (!context) {
     throw new Error(
-      "useUnifiedListControls must be used within a UnifiedListControlsProvider",
+      "useCreationDialogs must be used within a CreationDialogsProvider",
     );
   }
   return context;

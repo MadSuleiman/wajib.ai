@@ -1,9 +1,9 @@
 import type React from "react";
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import { Toaster } from "sonner";
 import { Suspense } from "react";
 import "./globals.css";
+import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ZoomPrevention } from "@/components/anti-zoom";
 

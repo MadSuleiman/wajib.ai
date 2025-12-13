@@ -6,12 +6,11 @@ import { Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDashboardView } from "@/hooks/use-dashboard-view";
 import { Button } from "@/components/ui/button";
-import { useUnifiedListControls } from "@/components/unified-list/controls-context";
+import { useCreationDialogs } from "@/components/dashboard/creation-dialogs-context";
 
 export function Navigation() {
   const { view, setView } = useDashboardView();
-  const { setIsCreateTaskOpen, setIsCreateRoutineOpen } =
-    useUnifiedListControls();
+  const { setIsCreateTaskOpen, setIsCreateRoutineOpen } = useCreationDialogs();
 
   const openSettings = useCallback(() => {
     setView("settings");

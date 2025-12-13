@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Filter } from "lucide-react";
 
 import { useSupabase } from "@/components/supabase-provider";
-import { useUnifiedListControls } from "@/components/unified-list/controls-context";
+import { useCreationDialogs } from "@/components/dashboard/creation-dialogs-context";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
@@ -96,7 +96,7 @@ const splitDailyRecurringItems = <
   return { prioritized: [...daily, ...others], daily, others };
 };
 
-export function UnifiedList() {
+export function DashboardContent() {
   const isMobile = useIsMobile();
   const supabaseContext = useSupabase();
   const {
@@ -113,7 +113,7 @@ export function UnifiedList() {
     setIsCreateTaskOpen,
     isCreateRoutineOpen,
     setIsCreateRoutineOpen,
-  } = useUnifiedListControls();
+  } = useCreationDialogs();
 
   const [groupMode, setGroupMode] = useState<ItemGroupMode>("month");
   const [sortValue, setSortValue] = useState<SortOptionValue>(defaultSortValue);
