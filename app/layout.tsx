@@ -55,7 +55,7 @@ export default async function RootLayout({
               {children}
             </Suspense>
           </div>
-          <Toaster position="top-right" />
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>
