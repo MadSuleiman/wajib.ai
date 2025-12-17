@@ -6,8 +6,10 @@ import { cn } from "@/lib/utils";
 import {
   priorityIcons,
   priorityLabels,
+  urgencyIcons,
+  urgencyLabels,
 } from "@/components/dashboard/list-utils";
-import type { RecurrenceType, TaskPriority } from "@/types";
+import type { RecurrenceType, TaskPriority, TaskUrgency } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -47,6 +49,7 @@ type NewItemCardProps = {
   onAddItem: (input: {
     title: string;
     priority: TaskPriority;
+    urgency: TaskUrgency;
     hours: string;
     category: string;
     recurrenceType: RecurrenceType;
@@ -66,6 +69,7 @@ export function NewItemCard({
 }: NewItemCardProps) {
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("medium");
+  const [urgency, setUrgency] = useState<TaskUrgency>("medium");
   const [hours, setHours] = useState("");
   const [categorySelection, setCategorySelection] = useState(defaultCategory);
   const isRoutine = variant === "routine";
@@ -108,6 +112,7 @@ export function NewItemCard({
       const success = await onAddItem({
         title,
         priority,
+        urgency,
         hours,
         category: resolvedCategory,
         recurrenceType: effectiveRecurrenceType,
@@ -117,6 +122,7 @@ export function NewItemCard({
       if (success) {
         setTitle("");
         setPriority("medium");
+        setUrgency("medium");
         setHours("");
         setCategorySelection(defaultCategory);
         setRecurrenceType(isRoutine ? "daily" : "none");
@@ -129,6 +135,7 @@ export function NewItemCard({
       hours,
       onAddItem,
       priority,
+      urgency,
       recurrenceInterval,
       recurrenceType,
       title,
@@ -240,6 +247,29 @@ export function NewItemCard({
                         <div className="flex items-center gap-2">
                           {priorityIcons[option]}
                           <span>{priorityLabels[option]}</span>
+                        </div>
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Urgency</Label>
+              <Select
+                value={urgency}
+                onValueChange={(value: TaskUrgency) => setUrgency(value)}
+              >
+                <SelectTrigger className="w-full capitalize">
+                  <SelectValue placeholder="Select urgency" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(urgencyLabels) as TaskUrgency[]).map(
+                    (option) => (
+                      <SelectItem key={option} value={option}>
+                        <div className="flex items-center gap-2">
+                          {urgencyIcons[option]}
+                          <span>{urgencyLabels[option]}</span>
                         </div>
                       </SelectItem>
                     ),

@@ -1,4 +1,5 @@
 export type TaskPriority = "low" | "medium" | "high";
+export type TaskUrgency = "low" | "medium" | "high";
 export type RecurrenceType = "none" | "daily" | "weekly" | "monthly" | "yearly";
 export type ItemKind = "task" | "routine";
 
@@ -13,6 +14,7 @@ interface BaseItemRow {
   created_at: string;
   title: string;
   priority: TaskPriority;
+  urgency: TaskUrgency;
   estimated_hours: number | null;
   user_id: string;
   category: string;
@@ -53,6 +55,7 @@ export interface ListItem {
   completed: boolean;
   item_kind: ItemKind;
   priority: TaskPriority;
+  urgency: TaskUrgency;
   estimated_hours: number | null;
   user_id: string;
   category: string;
@@ -88,6 +91,7 @@ export interface RecurrenceLogRow {
 
 export const taskRowToListItem = (task: TaskRow): ListItem => ({
   ...task,
+  urgency: task.urgency ?? "medium",
   item_kind: "task",
   recurrence_type: "none",
   recurrence_interval: 1,
@@ -97,6 +101,7 @@ export const taskRowToListItem = (task: TaskRow): ListItem => ({
 
 export const routineRowToListItem = (routine: RoutineRow): ListItem => ({
   ...routine,
+  urgency: routine.urgency ?? "medium",
   item_kind: "routine",
   completed: false,
 });

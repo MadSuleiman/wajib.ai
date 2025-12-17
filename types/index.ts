@@ -9,6 +9,7 @@ export type {
   CategoryInsert,
   CategoryUpdate,
   TaskPriority,
+  TaskUrgency,
   RecurrenceType,
   ItemKind,
   SupabaseTableName,

@@ -21,6 +21,7 @@ import type {
   ListItem,
   RecurrenceType,
   TaskPriority,
+  TaskUrgency,
 } from "@/types";
 import { routineRowToListItem, taskRowToListItem } from "@/types/supabase";
 
@@ -32,6 +33,7 @@ const getErrorMessage = (error: unknown): string => {
 interface AddItemInput {
   title: string;
   priority: TaskPriority;
+  urgency: TaskUrgency;
   hours?: string;
   category?: string;
   recurrenceType?: RecurrenceType;
@@ -58,6 +60,7 @@ interface ListStore {
     updates: {
       title?: string;
       priority?: TaskPriority;
+      urgency?: TaskUrgency;
       hours?: string | null;
       category?: string;
       recurrence?: { type: RecurrenceType; interval: number };
@@ -138,6 +141,7 @@ export function SupabaseProvider({
     async ({
       title,
       priority,
+      urgency = "medium",
       hours,
       category,
       recurrenceType = "none",
@@ -188,6 +192,7 @@ export function SupabaseProvider({
                     title: trimmedTitle,
                     completed: false,
                     priority,
+                    urgency,
                     estimated_hours: estimatedHours,
                     category: normalizedCategory,
                     user_id: user.id,
@@ -201,6 +206,7 @@ export function SupabaseProvider({
                   {
                     title: trimmedTitle,
                     priority,
+                    urgency,
                     estimated_hours: estimatedHours,
                     category: normalizedCategory,
                     user_id: user.id,
@@ -477,6 +483,7 @@ export function SupabaseProvider({
               {
                 title: existingItem.title,
                 priority: existingItem.priority,
+                urgency: existingItem.urgency,
                 estimated_hours: existingItem.estimated_hours,
                 category: existingItem.category,
                 user_id: existingItem.user_id,
@@ -524,6 +531,7 @@ export function SupabaseProvider({
                   title: existingItem.title,
                   completed: existingItem.completed,
                   priority: existingItem.priority,
+                  urgency: existingItem.urgency,
                   estimated_hours: existingItem.estimated_hours,
                   category: existingItem.category,
                   user_id: existingItem.user_id,
@@ -626,6 +634,11 @@ export function SupabaseProvider({
 
         if (updates.priority && updates.priority !== existingItem.priority) {
           payload.priority = updates.priority;
+          hasChanges = true;
+        }
+
+        if (updates.urgency && updates.urgency !== existingItem.urgency) {
+          payload.urgency = updates.urgency;
           hasChanges = true;
         }
 

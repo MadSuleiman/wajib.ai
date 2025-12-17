@@ -9,7 +9,7 @@ import {
   type SetStateAction,
 } from "react";
 
-import type { ListItem, TaskPriority } from "@/types";
+import type { ListItem, TaskPriority, TaskUrgency } from "@/types";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +39,8 @@ import type { CategoryOption } from "./types";
 import {
   priorityIcons,
   priorityLabels,
+  urgencyIcons,
+  urgencyLabels,
 } from "@/components/dashboard/list-utils";
 
 interface TaskEditorProps {
@@ -51,6 +53,7 @@ interface TaskEditorProps {
     updates: {
       title?: string;
       priority?: TaskPriority;
+      urgency?: TaskUrgency;
       hours?: string | null;
       category?: string;
     },
@@ -62,6 +65,7 @@ interface FormState {
   title: string;
   category: string;
   priority: TaskPriority;
+  urgency: TaskUrgency;
   hours: string;
 }
 
@@ -69,6 +73,7 @@ const getInitialState = (item: ListItem | null): FormState => ({
   title: item?.title ?? "",
   category: item?.category ?? "task",
   priority: item?.priority ?? "medium",
+  urgency: item?.urgency ?? "medium",
   hours:
     typeof item?.estimated_hours === "number"
       ? item.estimated_hours.toString()
@@ -158,6 +163,32 @@ function TaskEditorForm({
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Urgency</label>
+            <Select
+              value={formState.urgency}
+              onValueChange={(value: TaskUrgency) =>
+                setFormState((prev) => ({ ...prev, urgency: value }))
+              }
+              disabled={!canEdit}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select urgency" />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(urgencyLabels) as TaskUrgency[]).map(
+                  (urgency) => (
+                    <SelectItem key={urgency} value={urgency}>
+                      <div className="flex items-center gap-2">
+                        {urgencyIcons[urgency]}
+                        {urgencyLabels[urgency]}
+                      </div>
+                    </SelectItem>
+                  ),
+                )}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
@@ -217,6 +248,7 @@ export function TaskEditor({
         title: formState.title,
         category: formState.category,
         priority: formState.priority,
+        urgency: formState.urgency,
         hours: formState.hours,
       };
 

@@ -1,4 +1,11 @@
-import { ArrowDown, ArrowRight, ArrowUp } from "lucide-react";
+import {
+  AlarmClock,
+  ArrowDown,
+  ArrowRight,
+  ArrowUp,
+  Clock3,
+  Flame,
+} from "lucide-react";
 import {
   endOfWeek,
   format,
@@ -7,7 +14,7 @@ import {
   startOfWeek,
 } from "date-fns";
 
-import type { TaskPriority } from "@/types";
+import type { TaskPriority, TaskUrgency } from "@/types";
 
 export interface BaseItem {
   id: string;
@@ -34,6 +41,24 @@ export const priorityOrder: Record<TaskPriority, number> = {
   low: 3,
 };
 
+export const urgencyIcons = {
+  low: <Clock3 className="h-4 w-4 text-emerald-500" />,
+  medium: <AlarmClock className="h-4 w-4 text-amber-500" />,
+  high: <Flame className="h-4 w-4 text-rose-500" />,
+};
+
+export const urgencyLabels: Record<TaskUrgency, string> = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+};
+
+export const urgencyOrder: Record<TaskUrgency, number> = {
+  high: 1,
+  medium: 2,
+  low: 3,
+};
+
 export const sortItemsByPriority = <
   T extends { priority: TaskPriority; created_at: string },
 >(
@@ -52,7 +77,7 @@ export const sortItemsByPriority = <
 
 export type ItemGroupMode = "date" | "week" | "month" | "priority" | "none";
 
-export type SortKey = "priority" | "date" | "title" | "hours";
+export type SortKey = "priority" | "urgency" | "date" | "title" | "hours";
 export type SortDirection = "asc" | "desc";
 
 export interface SortConfig {
@@ -66,7 +91,11 @@ export interface GroupedItems<T> {
 }
 
 export const sortItems = <
-  T extends BaseItem & { priority: TaskPriority; title: string },
+  T extends BaseItem & {
+    priority: TaskPriority;
+    urgency: TaskUrgency;
+    title: string;
+  },
 >(
   items: T[],
   config: SortConfig,
@@ -111,6 +140,19 @@ export const sortItems = <
         }
         return multiplier * (aHours - bHours);
       });
+    case "urgency":
+      if (direction === "asc") {
+        return [...items].sort(
+          (a, b) =>
+            urgencyOrder[b.urgency] - urgencyOrder[a.urgency] ||
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+        );
+      }
+      return [...items].sort(
+        (a, b) =>
+          urgencyOrder[a.urgency] - urgencyOrder[b.urgency] ||
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
     case "priority":
     default:
       if (direction === "asc") {

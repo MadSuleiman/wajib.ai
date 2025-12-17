@@ -17,8 +17,10 @@ import { cn } from "@/lib/utils";
 import {
   priorityIcons,
   priorityLabels,
+  urgencyIcons,
+  urgencyLabels,
 } from "@/components/dashboard/list-utils";
-import type { ListItem, TaskPriority } from "@/types";
+import type { ListItem, TaskPriority, TaskUrgency } from "@/types";
 import {
   DataTable,
   type DataTableColumn,
@@ -66,6 +68,7 @@ type ItemsViewProps = {
     updates: {
       title?: string;
       priority?: TaskPriority;
+      urgency?: TaskUrgency;
       hours?: string | null;
       category?: string;
       recurrence?: { type: ListItem["recurrence_type"]; interval: number };
@@ -434,6 +437,20 @@ function DesktopTable({
         ),
       },
       {
+        id: "urgency",
+        header: "Urgency",
+        sortable: true,
+        cell: (item) => (
+          <Badge
+            variant="outline"
+            className="flex items-center gap-2 capitalize"
+          >
+            {urgencyIcons[item.urgency]}
+            {urgencyLabels[item.urgency]}
+          </Badge>
+        ),
+      },
+      {
         id: "hours",
         header: "Hours",
         sortable: true,
@@ -643,6 +660,13 @@ function MobileList({
                       >
                         {priorityIcons[item.priority]}
                         {priorityLabels[item.priority]}
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className="flex items-center gap-1 text-[0.7rem]"
+                      >
+                        {urgencyIcons[item.urgency]}
+                        {urgencyLabels[item.urgency]}
                       </Badge>
                       <span className="text-muted-foreground">
                         {item.estimated_hours

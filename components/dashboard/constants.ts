@@ -24,6 +24,8 @@ export const sortOptions: ReadonlyArray<{
 }> = [
   { label: "Priority (high → low)", value: "priority:desc" },
   { label: "Priority (low → high)", value: "priority:asc" },
+  { label: "Urgency (high → low)", value: "urgency:desc" },
+  { label: "Urgency (low → high)", value: "urgency:asc" },
   { label: "Newest first", value: "date:desc" },
   { label: "Oldest first", value: "date:asc" },
   { label: "Title A → Z", value: "title:asc" },
@@ -45,6 +47,7 @@ export const defaultSortValue: SortOptionValue = "priority:desc";
 
 export const columnIdBySortKey: Record<SortKey, string | undefined> = {
   priority: "priority",
+  urgency: "urgency",
   date: "added",
   title: "title",
   hours: "hours",
@@ -53,6 +56,7 @@ export const columnIdBySortKey: Record<SortKey, string | undefined> = {
 export const sortKeyByColumnId: Record<string, SortKey | undefined> = {
   priority: "priority",
   title: "title",
+  urgency: "urgency",
   added: "date",
   hours: "hours",
 };
