@@ -7,7 +7,7 @@ export type SupabaseTableName =
   | "tasks"
   | "routines"
   | "categories"
-  | "recurrence_logs";
+  | "routine_logs";
 
 interface BaseItemRow {
   id: string;
@@ -27,18 +27,13 @@ export interface TaskRow extends BaseItemRow {
 export interface RoutineRow extends BaseItemRow {
   recurrence_type: RecurrenceType;
   recurrence_interval: number;
-  recurrence_next_occurrence: string | null;
-  recurrence_last_completed: string | null;
-  active: boolean;
 }
 
 export type TaskInsert = Partial<Omit<TaskRow, "id" | "created_at">> & {
   title: string;
 };
 
-export type RoutineInsert = Partial<
-  Omit<RoutineRow, "id" | "created_at" | "active">
-> & {
+export type RoutineInsert = Partial<Omit<RoutineRow, "id" | "created_at">> & {
   title: string;
   recurrence_type: RecurrenceType;
   recurrence_interval: number;
@@ -61,9 +56,6 @@ export interface ListItem {
   category: string;
   recurrence_type: RecurrenceType;
   recurrence_interval: number;
-  recurrence_next_occurrence: string | null;
-  recurrence_last_completed: string | null;
-  active?: boolean;
 }
 
 export interface CategoryRow {
@@ -82,10 +74,11 @@ export interface CategoryInsert {
 
 export type CategoryUpdate = Partial<CategoryRow>;
 
-export interface RecurrenceLogRow {
+export interface RoutineLogRow {
   id: string;
   routine_id: string;
   user_id: string;
+  completed_day: string;
   completed_at: string;
 }
 
@@ -95,8 +88,6 @@ export const taskRowToListItem = (task: TaskRow): ListItem => ({
   item_kind: "task",
   recurrence_type: "none",
   recurrence_interval: 1,
-  recurrence_next_occurrence: null,
-  recurrence_last_completed: null,
 });
 
 export const routineRowToListItem = (routine: RoutineRow): ListItem => ({

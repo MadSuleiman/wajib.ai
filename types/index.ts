@@ -8,6 +8,7 @@ export type {
   CategoryRow as Category,
   CategoryInsert,
   CategoryUpdate,
+  RoutineLogRow,
   TaskPriority,
   TaskUrgency,
   RecurrenceType,

@@ -48,25 +48,9 @@ import { InsightsGrid } from "./insights-grid";
 import { FiltersCard } from "./filters-card";
 import { ItemsView } from "./items-view";
 
-const getTimeValue = (value?: string | null): number | null => {
-  if (!value) return null;
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? null : parsed;
-};
-
 const getDerivedStatus = (item: ListItem, now: number): DerivedStatus => {
-  if (!item.recurrence_type || item.recurrence_type === "none") {
-    return item.completed ? "completed" : "active";
-  }
-
-  if (!item.recurrence_last_completed) {
-    return "active";
-  }
-
-  const nextOccurrence = getTimeValue(item.recurrence_next_occurrence);
-  if (!nextOccurrence) return "active";
-
-  return nextOccurrence <= now ? "active" : "completed";
+  void now;
+  return item.completed ? "completed" : "active";
 };
 
 const splitDailyRecurringItems = <
@@ -171,17 +155,11 @@ export function DashboardContent() {
   }, [items]);
 
   const filterAndSortItems = useCallback(
-    (input: ListItem[], options?: { viewKind?: "task" | "routine" }) => {
-      const effectiveStatusFilter =
-        options?.viewKind === "routine" && statusFilter === "active"
-          ? "all"
-          : statusFilter;
+    (input: ListItem[]) => {
       const filtered = input.filter((item) => {
         const derivedStatus = derivedStatuses.get(item.id) ?? "active";
         const matchesStatus =
-          effectiveStatusFilter === "all"
-            ? true
-            : effectiveStatusFilter === derivedStatus;
+          statusFilter === "all" ? true : statusFilter === derivedStatus;
 
         const matchesCategory =
           categoryFilter === "all" ? true : item.category === categoryFilter;
@@ -233,11 +211,11 @@ export function DashboardContent() {
   );
 
   const taskView = useMemo(
-    () => filterAndSortItems(tasks, { viewKind: "task" }),
+    () => filterAndSortItems(tasks),
     [filterAndSortItems, tasks],
   );
   const routineView = useMemo(
-    () => filterAndSortItems(routines, { viewKind: "routine" }),
+    () => filterAndSortItems(routines),
     [filterAndSortItems, routines],
   );
 

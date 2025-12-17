@@ -6,15 +6,15 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
-import { addDays, addMonths, addWeeks, addYears } from "date-fns";
+import { format } from "date-fns";
 import { toast } from "sonner";
 
 import { createClientSupabaseClient } from "@/lib/supabase-client";
 import { sortItemsByPriority } from "@/components/dashboard/list-utils";
-import { toLocalMidnight } from "@/lib/timezone";
 import type {
   Category,
   ItemKind,
@@ -29,6 +29,8 @@ const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
   return String(error);
 };
+
+const getLocalDayKey = (date: Date) => format(date, "yyyy-MM-dd");
 
 interface AddItemInput {
   title: string;
@@ -88,18 +90,86 @@ export function SupabaseProvider({
   children,
 }: SupabaseProviderProps) {
   const supabase = useMemo(() => createClientSupabaseClient(), []);
+  const [userId, setUserId] = useState<string | null>(null);
   const [items, setItems] = useState<ListItem[]>(() =>
     sortItemsByPriority(initialItems),
   );
   const [categories] = useState<Category[]>(initialCategories);
   const [isLoading, setIsLoading] = useState(false);
+  const [routineCompletionDay, setRoutineCompletionDay] = useState(() =>
+    getLocalDayKey(new Date()),
+  );
+  const [completedRoutineIds, setCompletedRoutineIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const routineCompletionDayRef = useRef(routineCompletionDay);
+  const completedRoutineIdsRef = useRef(completedRoutineIds);
 
-  const refreshItem = useCallback((nextItem: ListItem) => {
+  useEffect(() => {
+    routineCompletionDayRef.current = routineCompletionDay;
+  }, [routineCompletionDay]);
+
+  useEffect(() => {
+    completedRoutineIdsRef.current = completedRoutineIds;
+  }, [completedRoutineIds]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      const nextKey = getLocalDayKey(new Date());
+      setRoutineCompletionDay((current) =>
+        current === nextKey ? current : nextKey,
+      );
+    }, 60_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  const applyRoutineCompletionSet = useCallback((nextSet: Set<string>) => {
+    setCompletedRoutineIds(nextSet);
     setItems((current) =>
       sortItemsByPriority(
-        current.some((item) => item.id === nextItem.id)
-          ? current.map((item) => (item.id === nextItem.id ? nextItem : item))
-          : [...current, nextItem],
+        current.map((item) =>
+          item.item_kind === "routine"
+            ? { ...item, completed: nextSet.has(item.id) }
+            : item,
+        ),
+      ),
+    );
+  }, []);
+
+  const refreshRoutineCompletionsForDay = useCallback(
+    async (input: { userId: string; dayKey: string }) => {
+      const { data, error } = await supabase
+        .from("routine_logs")
+        .select("routine_id, completed_day")
+        .eq("user_id", input.userId)
+        .eq("completed_day", input.dayKey);
+
+      if (error) throw error;
+
+      const nextSet = new Set<string>();
+      (data ?? []).forEach((row) => {
+        if (row?.routine_id) nextSet.add(String(row.routine_id));
+      });
+      applyRoutineCompletionSet(nextSet);
+    },
+    [applyRoutineCompletionSet, supabase],
+  );
+
+  const refreshItem = useCallback((nextItem: ListItem) => {
+    const normalized =
+      nextItem.item_kind === "routine"
+        ? {
+            ...nextItem,
+            completed: completedRoutineIdsRef.current.has(nextItem.id),
+          }
+        : nextItem;
+    setItems((current) =>
+      sortItemsByPriority(
+        current.some((item) => item.id === normalized.id)
+          ? current.map((item) =>
+              item.id === normalized.id ? normalized : item,
+            )
+          : [...current, normalized],
       ),
     );
   }, []);
@@ -107,35 +177,6 @@ export function SupabaseProvider({
   const removeItem = useCallback((itemId: string) => {
     setItems((current) => current.filter((item) => item.id !== itemId));
   }, []);
-
-  const calculateNextOccurrence = useCallback(
-    (
-      recurrenceType: RecurrenceType,
-      recurrenceInterval: number,
-      fromDate: Date = new Date(),
-    ): Date | null => {
-      if (recurrenceType === "none") {
-        return null;
-      }
-
-      const normalizedInterval = Math.max(1, recurrenceInterval);
-      const baseDate = toLocalMidnight(fromDate);
-
-      switch (recurrenceType) {
-        case "daily":
-          return addDays(baseDate, normalizedInterval);
-        case "weekly":
-          return addWeeks(baseDate, normalizedInterval);
-        case "monthly":
-          return addMonths(baseDate, normalizedInterval);
-        case "yearly":
-          return addYears(baseDate, normalizedInterval);
-        default:
-          return null;
-      }
-    },
-    [],
-  );
 
   const addItem: ListStore["addItem"] = useCallback(
     async ({
@@ -178,10 +219,6 @@ export function SupabaseProvider({
             : 1;
         const itemKind: ItemKind =
           normalizedRecurrenceType === "none" ? "task" : "routine";
-        const nextOccurrence =
-          normalizedRecurrenceType === "none"
-            ? null
-            : toLocalMidnight(new Date());
 
         const { data, error } =
           normalizedRecurrenceType === "none"
@@ -212,9 +249,6 @@ export function SupabaseProvider({
                     user_id: user.id,
                     recurrence_type: normalizedRecurrenceType,
                     recurrence_interval: normalizedRecurrenceInterval,
-                    recurrence_next_occurrence: nextOccurrence
-                      ? nextOccurrence.toISOString()
-                      : null,
                   },
                 ] as never)
                 .select()
@@ -249,62 +283,60 @@ export function SupabaseProvider({
 
   const toggleItemCompletion: ListStore["toggleItemCompletion"] = useCallback(
     async (item) => {
-      if (item.recurrence_type && item.recurrence_type !== "none") {
-        // If the routine is currently considered "completed" (next occurrence in the future),
-        // toggling should restore it to active/due today instead of logging another completion.
-        const today = toLocalMidnight(new Date());
-        const nextDate = item.recurrence_next_occurrence
-          ? new Date(item.recurrence_next_occurrence)
-          : null;
-        const isCompleted = nextDate ? nextDate > today : false;
+      if (item.item_kind === "routine") {
+        try {
+          const dayKey = getLocalDayKey(new Date());
+          if (dayKey !== routineCompletionDayRef.current) {
+            setRoutineCompletionDay(dayKey);
+          }
 
-        if (isCompleted) {
-          try {
-            const { data, error } = await supabase
-              .from("routines")
-              .update({
-                recurrence_next_occurrence: today.toISOString(),
-                recurrence_last_completed: null,
-              } as never)
-              .eq("id", item.id)
-              .select()
-              .single();
+          if (item.completed) {
+            const { error } = await supabase
+              .from("routine_logs")
+              .delete()
+              .eq("routine_id", item.id)
+              .eq("user_id", item.user_id)
+              .eq("completed_day", dayKey);
 
             if (error) throw error;
-            if (data) {
-              refreshItem(routineRowToListItem(data as never));
-            }
 
+            setCompletedRoutineIds((current) => {
+              const next = new Set(current);
+              next.delete(item.id);
+              return next;
+            });
+            refreshItem({ ...item, completed: false });
             toast.success("Routine marked as active");
             return true;
-          } catch (error: unknown) {
-            toast.error("Failed to update routine", {
-              description:
-                getErrorMessage(error) ||
-                "Something went wrong. Please try again.",
-            });
-            return false;
           }
-        }
 
-        try {
-          const { data, error } = await supabase.rpc("complete_routine", {
-            p_routine_id: item.id,
-            p_user_id: item.user_id,
-          });
+          const { error } = await supabase.from("routine_logs").upsert(
+            [
+              {
+                routine_id: item.id,
+                user_id: item.user_id,
+                completed_day: dayKey,
+                completed_at: new Date().toISOString(),
+              },
+            ] as never,
+            { onConflict: "routine_id,user_id,completed_day" },
+          );
 
           if (error) throw error;
 
-          if (data) {
-            refreshItem(routineRowToListItem(data as never));
-          }
+          setCompletedRoutineIds((current) => {
+            const next = new Set(current);
+            next.add(item.id);
+            return next;
+          });
+          refreshItem({ ...item, completed: true });
 
-          toast.success("Recurring task logged", {
-            description: "Next occurrence scheduled automatically.",
+          toast.success("Routine completed", {
+            description: "Tracked for today.",
           });
           return true;
         } catch (error: unknown) {
-          toast.error("Failed to log recurring task", {
+          toast.error("Failed to update routine", {
             description:
               getErrorMessage(error) ||
               "Something went wrong. Please try again.",
@@ -334,9 +366,7 @@ export function SupabaseProvider({
         return false;
       }
     },
-    // calculateNextOccurrence is stable; included for clarity.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [calculateNextOccurrence, refreshItem, supabase],
+    [refreshItem, supabase],
   );
 
   const updateItemPriority: ListStore["updateItemPriority"] = useCallback(
@@ -475,7 +505,6 @@ export function SupabaseProvider({
           const normalizedType: RecurrenceType = type;
           const normalizedInterval =
             interval && interval > 0 ? Math.floor(interval) : 1;
-          const nextOccurrence = toLocalMidnight(new Date());
 
           const { data: created, error: createError } = await supabase
             .from("routines")
@@ -489,9 +518,6 @@ export function SupabaseProvider({
                 user_id: existingItem.user_id,
                 recurrence_type: normalizedType,
                 recurrence_interval: normalizedInterval,
-                recurrence_next_occurrence: nextOccurrence
-                  ? nextOccurrence.toISOString()
-                  : null,
               },
             ] as never)
             .select()
@@ -557,23 +583,9 @@ export function SupabaseProvider({
             return true;
           }
 
-          const referenceDate = existingItem.recurrence_last_completed
-            ? new Date(existingItem.recurrence_last_completed)
-            : null;
-          const nextOccurrence = referenceDate
-            ? calculateNextOccurrence(
-                normalizedType,
-                normalizedInterval,
-                referenceDate,
-              )
-            : toLocalMidnight(new Date());
-
           const updates: Record<string, unknown> = {
             recurrence_type: normalizedType,
             recurrence_interval: normalizedInterval,
-            recurrence_next_occurrence: nextOccurrence
-              ? nextOccurrence.toISOString()
-              : null,
           };
 
           const { data, error } = await supabase
@@ -601,7 +613,7 @@ export function SupabaseProvider({
         return false;
       }
     },
-    [calculateNextOccurrence, items, refreshItem, removeItem, supabase],
+    [items, refreshItem, removeItem, supabase],
   );
 
   const updateItemDetails: ListStore["updateItemDetails"] = useCallback(
@@ -673,22 +685,8 @@ export function SupabaseProvider({
               ? Math.floor(updates.recurrence.interval)
               : existingItem.recurrence_interval;
 
-          const referenceDate = existingItem.recurrence_last_completed
-            ? new Date(existingItem.recurrence_last_completed)
-            : null;
-          const nextOccurrence = referenceDate
-            ? calculateNextOccurrence(
-                normalizedType,
-                normalizedInterval,
-                referenceDate,
-              )
-            : toLocalMidnight(new Date());
-
           payload.recurrence_type = normalizedType;
           payload.recurrence_interval = normalizedInterval;
-          payload.recurrence_next_occurrence = nextOccurrence
-            ? nextOccurrence.toISOString()
-            : null;
           hasChanges = true;
         }
 
@@ -726,7 +724,7 @@ export function SupabaseProvider({
         return false;
       }
     },
-    [calculateNextOccurrence, items, refreshItem, supabase],
+    [items, refreshItem, supabase],
   );
 
   const deleteItem: ListStore["deleteItem"] = useCallback(
@@ -763,6 +761,7 @@ export function SupabaseProvider({
     let isCancelled = false;
     let taskChannel: ReturnType<typeof supabase.channel> | null = null;
     let routineChannel: ReturnType<typeof supabase.channel> | null = null;
+    let routineLogChannel: ReturnType<typeof supabase.channel> | null = null;
 
     const startRealtime = async () => {
       const {
@@ -774,6 +773,8 @@ export function SupabaseProvider({
         console.error("Unable to start realtime feed", userError);
         return;
       }
+
+      setUserId(user.id);
 
       taskChannel = supabase
         .channel("tasks-realtime")
@@ -820,6 +821,63 @@ export function SupabaseProvider({
           },
         )
         .subscribe();
+
+      routineLogChannel = supabase
+        .channel("routine-logs-realtime")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "routine_logs",
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            if (isCancelled) return;
+            const record = (
+              payload.eventType === "DELETE" ? payload.old : payload.new
+            ) as { routine_id?: string; completed_day?: string } | undefined;
+            const routineId = record?.routine_id
+              ? String(record.routine_id)
+              : null;
+            const completedDay = record?.completed_day
+              ? String(record.completed_day)
+              : null;
+
+            if (!routineId || !completedDay) return;
+            if (completedDay !== routineCompletionDayRef.current) return;
+
+            if (payload.eventType === "DELETE") {
+              setCompletedRoutineIds((current) => {
+                const next = new Set(current);
+                next.delete(routineId);
+                return next;
+              });
+              setItems((current) =>
+                current.map((item) =>
+                  item.id === routineId && item.item_kind === "routine"
+                    ? { ...item, completed: false }
+                    : item,
+                ),
+              );
+              return;
+            }
+
+            setCompletedRoutineIds((current) => {
+              const next = new Set(current);
+              next.add(routineId);
+              return next;
+            });
+            setItems((current) =>
+              current.map((item) =>
+                item.id === routineId && item.item_kind === "routine"
+                  ? { ...item, completed: true }
+                  : item,
+              ),
+            );
+          },
+        )
+        .subscribe();
     };
 
     void startRealtime();
@@ -832,58 +890,21 @@ export function SupabaseProvider({
       if (routineChannel) {
         supabase.removeChannel(routineChannel);
       }
+      if (routineLogChannel) {
+        supabase.removeChannel(routineLogChannel);
+      }
     };
   }, [refreshItem, removeItem, supabase]);
 
   useEffect(() => {
-    const today = toLocalMidnight(new Date());
-    const overdue = items.filter((item) => {
-      if (!item.recurrence_type || item.recurrence_type === "none") {
-        return false;
-      }
-      if (!item.recurrence_next_occurrence) return false;
-      const nextDate = new Date(item.recurrence_next_occurrence);
-      return nextDate < today;
+    if (!userId) return;
+    void refreshRoutineCompletionsForDay({
+      userId,
+      dayKey: routineCompletionDay,
+    }).catch((error: unknown) => {
+      console.error("Failed to refresh routine completions", error);
     });
-
-    if (!overdue.length) return;
-
-    let cancelled = false;
-    const rescheduleOverdue = async () => {
-      for (const item of overdue) {
-        if (cancelled) break;
-        const nextOccurrence = calculateNextOccurrence(
-          item.recurrence_type,
-          item.recurrence_interval || 1,
-          today,
-        );
-        const { data, error } = await supabase
-          .from("routines")
-          .update({
-            recurrence_next_occurrence: nextOccurrence
-              ? nextOccurrence.toISOString()
-              : null,
-            active: true,
-          } as never)
-          .eq("id", item.id)
-          .select()
-          .single();
-        if (error) {
-          console.error("Failed to reschedule overdue routine", item.id, error);
-          continue;
-        }
-        if (data) {
-          refreshItem(routineRowToListItem(data as never));
-        }
-      }
-    };
-
-    void rescheduleOverdue();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [calculateNextOccurrence, items, refreshItem, supabase]);
+  }, [refreshRoutineCompletionsForDay, routineCompletionDay, userId]);
 
   const value = useMemo(
     () => ({

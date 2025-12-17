@@ -1,16 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import {
-  differenceInCalendarDays,
-  differenceInCalendarMonths,
-  differenceInCalendarWeeks,
-  differenceInCalendarYears,
-  endOfDay,
-  endOfMonth,
-  endOfWeek,
-  endOfYear,
-  formatDistanceStrict,
-  formatDistanceToNow,
-} from "date-fns";
+import { endOfDay, formatDistanceStrict, formatDistanceToNow } from "date-fns";
 import { CheckCircle2, Circle, Pencil, Trash2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -107,11 +96,6 @@ export function ItemsView({
     (value: string) => formatAddedDescription(value, userTimeZone),
     [userTimeZone],
   );
-  const formatNextOccurrence = useCallback(
-    (value: string | null) =>
-      value ? formatLocalDateTime(value, userTimeZone) : "Not scheduled",
-    [userTimeZone],
-  );
 
   const [editorItem, setEditorItem] = useState<ListItem | null>(null);
   const [editorKind, setEditorKind] = useState<"task" | "routine">("task");
@@ -131,88 +115,18 @@ export function ItemsView({
     }
   }, []);
 
-  const getLateLabel = useCallback(
-    (item: ListItem): string | null => {
-      if (item.recurrence_type === "none") return null;
-      const nextTs = item.recurrence_next_occurrence
-        ? Date.parse(item.recurrence_next_occurrence)
-        : Number.NaN;
-      if (Number.isNaN(nextTs)) return null;
-      if (nextTs >= currentTime) return null;
-      const nowDate = new Date(currentTime);
-      const nextDate = new Date(nextTs);
-      switch (item.recurrence_type) {
-        case "daily": {
-          const daysLate = differenceInCalendarDays(nowDate, nextDate);
-          if (daysLate <= 0) return "Due today";
-          return `${daysLate} day${daysLate === 1 ? "" : "s"} late`;
-        }
-        case "weekly": {
-          const weeksLate = differenceInCalendarWeeks(nowDate, nextDate);
-          if (weeksLate <= 0) return "Due this week";
-          return `${weeksLate} week${weeksLate === 1 ? "" : "s"} late`;
-        }
-        case "monthly": {
-          const monthsLate = differenceInCalendarMonths(nowDate, nextDate);
-          if (monthsLate <= 0) return "Due this month";
-          return `${monthsLate} month${monthsLate === 1 ? "" : "s"} late`;
-        }
-        case "yearly": {
-          const yearsLate = differenceInCalendarYears(nowDate, nextDate);
-          if (yearsLate <= 0) return "Due this year";
-          return `${yearsLate} year${yearsLate === 1 ? "" : "s"} late`;
-        }
-        default:
-          return null;
-      }
-    },
-    [currentTime],
-  );
-
   const getRoutineTiming = useCallback(
     (
       item: ListItem,
-    ): { label: "Time left" | "Time until next"; value: string } | null => {
+    ): { label: "Time left" | "Resets in"; value: string } | null => {
       if (item.recurrence_type === "none") return null;
 
       const status = derivedStatuses.get(item.id) ?? "active";
       const nowDate = new Date(currentTime);
-
-      if (status === "active") {
-        let periodEnd: Date;
-        switch (item.recurrence_type) {
-          case "weekly":
-            periodEnd = endOfWeek(nowDate, { weekStartsOn: 1 });
-            break;
-          case "monthly":
-            periodEnd = endOfMonth(nowDate);
-            break;
-          case "yearly":
-            periodEnd = endOfYear(nowDate);
-            break;
-          case "daily":
-          default:
-            periodEnd = endOfDay(nowDate);
-            break;
-        }
-        return {
-          label: "Time left",
-          value: formatDistanceStrict(periodEnd, nowDate),
-        };
-      }
-
-      const nextTs = item.recurrence_next_occurrence
-        ? Date.parse(item.recurrence_next_occurrence)
-        : Number.NaN;
-      if (Number.isNaN(nextTs)) {
-        return { label: "Time until next", value: "Not scheduled" };
-      }
-
+      const periodEnd = endOfDay(nowDate);
       return {
-        label: "Time until next",
-        value: formatDistanceStrict(new Date(nextTs), nowDate, {
-          addSuffix: true,
-        }),
+        label: status === "active" ? "Time left" : "Resets in",
+        value: formatDistanceStrict(periodEnd, nowDate),
       };
     },
     [currentTime, derivedStatuses],
@@ -235,9 +149,7 @@ export function ItemsView({
             toggleItemCompletion={toggleItemCompletion}
             deleteItem={deleteItem}
             formatAdded={formatAdded}
-            formatNextOccurrence={formatNextOccurrence}
             onEditTask={handleOpenEditor}
-            getLateLabel={getLateLabel}
             getRoutineTiming={getRoutineTiming}
           />
         ) : (
@@ -258,9 +170,7 @@ export function ItemsView({
           sortState={tableSortState}
           onSortChange={onTableSortChange}
           formatAdded={formatAdded}
-          formatNextOccurrence={formatNextOccurrence}
           onEditTask={handleOpenEditor}
-          getLateLabel={getLateLabel}
           getRoutineTiming={getRoutineTiming}
         />
       )}
@@ -300,12 +210,10 @@ type DesktopTableProps = {
   sortState?: DataTableSortState;
   onSortChange: (nextSort: DataTableSortState) => void;
   formatAdded: (value: string) => string;
-  formatNextOccurrence: (value: string | null) => string;
   onEditTask: (item: ListItem) => void;
-  getLateLabel: (item: ListItem) => string | null;
   getRoutineTiming: (
     item: ListItem,
-  ) => { label: "Time left" | "Time until next"; value: string } | null;
+  ) => { label: "Time left" | "Resets in"; value: string } | null;
 };
 
 function DesktopTable({
@@ -320,9 +228,7 @@ function DesktopTable({
   sortState,
   onSortChange,
   formatAdded,
-  formatNextOccurrence,
   onEditTask,
-  getLateLabel,
   getRoutineTiming,
 }: DesktopTableProps) {
   const columns = useMemo<DataTableColumn<ListItem>[]>(() => {
@@ -391,8 +297,8 @@ function DesktopTable({
         id: "recurrence",
         header: "Recurrence",
         cell: (item) => {
-          const lateLabel = getLateLabel(item);
           const timing = getRoutineTiming(item);
+          const status = derivedStatuses.get(item.id) ?? "active";
           return (
             <div className="flex flex-col text-sm">
               <span className="font-medium">
@@ -403,16 +309,13 @@ function DesktopTable({
               <span className="text-xs text-muted-foreground">
                 {item.recurrence_type === "none"
                   ? "Doesn't repeat"
-                  : `Next: ${formatNextOccurrence(item.recurrence_next_occurrence)}`}
+                  : status === "completed"
+                    ? "Completed today"
+                    : "Due today"}
               </span>
               {timing ? (
                 <span className="text-xs text-muted-foreground">
                   {timing.label}: {timing.value}
-                </span>
-              ) : null}
-              {lateLabel ? (
-                <span className="text-xs font-semibold text-destructive">
-                  {lateLabel}
                 </span>
               ) : null}
             </div>
@@ -508,8 +411,6 @@ function DesktopTable({
     deleteItem,
     derivedStatuses,
     formatAdded,
-    formatNextOccurrence,
-    getLateLabel,
     getRoutineTiming,
     onEditTask,
     toggleItemCompletion,
@@ -568,12 +469,10 @@ type MobileListProps = {
   toggleItemCompletion: (item: ListItem) => Promise<boolean>;
   deleteItem: (itemId: string) => Promise<boolean>;
   formatAdded: (value: string) => string;
-  formatNextOccurrence: (value: string | null) => string;
   onEditTask: (item: ListItem) => void;
-  getLateLabel: (item: ListItem) => string | null;
   getRoutineTiming: (
     item: ListItem,
-  ) => { label: "Time left" | "Time until next"; value: string } | null;
+  ) => { label: "Time left" | "Resets in"; value: string } | null;
 };
 
 function MobileList({
@@ -583,9 +482,7 @@ function MobileList({
   toggleItemCompletion,
   deleteItem,
   formatAdded,
-  formatNextOccurrence,
   onEditTask,
-  getLateLabel,
   getRoutineTiming,
 }: MobileListProps) {
   return (
@@ -605,7 +502,6 @@ function MobileList({
                 const categoryLabel = categoryInfo?.label ?? item.category;
                 const isCompleted =
                   (derivedStatuses.get(item.id) ?? "active") === "completed";
-                const lateLabel = getLateLabel(item);
                 const timing = getRoutineTiming(item);
 
                 return (
@@ -678,19 +574,11 @@ function MobileList({
                       <div className="mt-2 space-y-1 text-xs">
                         <p className="text-muted-foreground">
                           {recurrenceLabelMap[item.recurrence_type]} every{" "}
-                          {item.recurrence_interval} • Next{" "}
-                          {formatNextOccurrence(
-                            item.recurrence_next_occurrence,
-                          )}
+                          {item.recurrence_interval}
                         </p>
                         {timing ? (
                           <p className="text-muted-foreground">
                             {timing.label}: {timing.value}
-                          </p>
-                        ) : null}
-                        {lateLabel ? (
-                          <p className="font-semibold text-destructive">
-                            {lateLabel}
                           </p>
                         ) : null}
                       </div>
