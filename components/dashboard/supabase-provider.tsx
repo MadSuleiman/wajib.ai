@@ -747,6 +747,82 @@ export function SupabaseProvider({
   );
 
   useEffect(() => {
+    let isCancelled = false;
+    let taskChannel: ReturnType<typeof supabase.channel> | null = null;
+    let routineChannel: ReturnType<typeof supabase.channel> | null = null;
+
+    const startRealtime = async () => {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        console.error("Unable to start realtime feed", userError);
+        return;
+      }
+
+      taskChannel = supabase
+        .channel("tasks-realtime")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "tasks",
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            if (isCancelled) return;
+            if (payload.eventType === "DELETE" && payload.old?.id) {
+              removeItem(String(payload.old.id));
+              return;
+            }
+            if (payload.new) {
+              refreshItem(taskRowToListItem(payload.new as never));
+            }
+          },
+        )
+        .subscribe();
+
+      routineChannel = supabase
+        .channel("routines-realtime")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "routines",
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            if (isCancelled) return;
+            if (payload.eventType === "DELETE" && payload.old?.id) {
+              removeItem(String(payload.old.id));
+              return;
+            }
+            if (payload.new) {
+              refreshItem(routineRowToListItem(payload.new as never));
+            }
+          },
+        )
+        .subscribe();
+    };
+
+    void startRealtime();
+
+    return () => {
+      isCancelled = true;
+      if (taskChannel) {
+        supabase.removeChannel(taskChannel);
+      }
+      if (routineChannel) {
+        supabase.removeChannel(routineChannel);
+      }
+    };
+  }, [refreshItem, removeItem, supabase]);
+
+  useEffect(() => {
     const today = toLocalMidnight(new Date());
     const overdue = items.filter((item) => {
       if (!item.recurrence_type || item.recurrence_type === "none") {
