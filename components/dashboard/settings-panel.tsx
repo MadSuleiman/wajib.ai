@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { Loader2, SettingsIcon } from "lucide-react";
 
 import { createClientSupabaseClient } from "@/lib/supabase-client";
+import { useSupabase } from "@/components/dashboard/supabase-provider";
+import type { ListItem } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,8 +18,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 
 interface ErrorWithMessage {
@@ -31,14 +40,15 @@ function getErrorMessage(error: unknown): string {
 }
 
 export function SettingsPanel() {
-  const [darkMode, setDarkMode] = useState(
-    typeof window !== "undefined" &&
-      document.documentElement.classList.contains("dark"),
-  );
   const [loading, setLoading] = useState(false);
+  const [exportKind, setExportKind] = useState<"tasks" | "routines" | null>(
+    null,
+  );
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createClientSupabaseClient();
+  const { theme, setTheme } = useTheme();
+  const { items } = useSupabase();
 
   useEffect(() => {
     async function getUserEmail() {
@@ -66,17 +76,24 @@ export function SettingsPanel() {
     }
   };
 
-  const toggleTheme = () => {
-    const newDarkMode = !darkMode;
-    setDarkMode(newDarkMode);
+  const tasksCsv = useMemo(() => {
+    const rows = items.items.filter((item) => item.item_kind === "task");
+    return buildCsv<ListItem>(rows, taskExportHeaders);
+  }, [items.items]);
 
-    if (newDarkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
+  const routinesCsv = useMemo(() => {
+    const rows = items.items.filter((item) => item.item_kind === "routine");
+    return buildCsv<ListItem>(rows, routineExportHeaders);
+  }, [items.items]);
 
-    localStorage.setItem("theme", newDarkMode ? "dark" : "light");
+  const handleDownload = (csv: string, filename: string) => {
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -96,12 +113,90 @@ export function SettingsPanel() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <Label htmlFor="dark-mode">Dark Mode</Label>
-              <Switch
-                id="dark-mode"
-                checked={darkMode}
-                onCheckedChange={toggleTheme}
-              />
+              <Label htmlFor="theme-select">Theme</Label>
+              <Select
+                value={theme ?? "system"}
+                onValueChange={(value) => setTheme(value)}
+              >
+                <SelectTrigger id="theme-select" className="w-[160px]">
+                  <SelectValue placeholder="Select theme" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="system">System</SelectItem>
+                  <SelectItem value="light">Light</SelectItem>
+                  <SelectItem value="dark">Dark</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Data export</CardTitle>
+            <CardDescription>
+              Download or copy CSV snapshots of your items
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    setExportKind((current) =>
+                      current === "tasks" ? null : "tasks",
+                    )
+                  }
+                >
+                  Export tasks
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => handleDownload(tasksCsv, "tasks.csv")}
+                  disabled={!tasksCsv}
+                >
+                  Download CSV
+                </Button>
+              </div>
+              {exportKind === "tasks" ? (
+                <textarea
+                  readOnly
+                  value={tasksCsv}
+                  className="min-h-[160px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              ) : null}
+            </div>
+
+            <Separator />
+
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    setExportKind((current) =>
+                      current === "routines" ? null : "routines",
+                    )
+                  }
+                >
+                  Export routines
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => handleDownload(routinesCsv, "routines.csv")}
+                  disabled={!routinesCsv}
+                >
+                  Download CSV
+                </Button>
+              </div>
+              {exportKind === "routines" ? (
+                <textarea
+                  readOnly
+                  value={routinesCsv}
+                  className="min-h-[160px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              ) : null}
             </div>
           </CardContent>
         </Card>
@@ -150,3 +245,44 @@ export function SettingsPanel() {
     </div>
   );
 }
+
+function buildCsv<T extends object>(
+  rows: T[],
+  headers: readonly (keyof T & string)[],
+) {
+  const headerLine = headers.join(",");
+  const lines = rows.map((row) =>
+    headers.map((header) => escapeCsv(row[header])).join(","),
+  );
+  return [headerLine, ...lines].join("\n");
+}
+
+function escapeCsv(value: unknown) {
+  if (value === null || value === undefined) return "";
+  const text = String(value);
+  if (/[",\n]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+const taskExportHeaders = [
+  "title",
+  "priority",
+  "urgency",
+  "estimated_hours",
+  "category",
+  "completed",
+  "created_at",
+] as const;
+
+const routineExportHeaders = [
+  "title",
+  "priority",
+  "urgency",
+  "estimated_hours",
+  "category",
+  "recurrence_type",
+  "recurrence_interval",
+  "created_at",
+] as const;

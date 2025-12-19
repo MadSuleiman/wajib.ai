@@ -309,6 +309,12 @@ export function DashboardContent() {
     [addItem, setIsCreateTaskOpen],
   );
 
+  const handleBulkAddTask = useCallback(
+    async (input: Parameters<typeof addItem>[0]) =>
+      addItem({ ...input, recurrenceType: "none" }),
+    [addItem],
+  );
+
   const handleAddRoutine = useCallback(
     async (input: Parameters<typeof addItem>[0]) => {
       const success = await addItem({
@@ -323,10 +329,20 @@ export function DashboardContent() {
     [addItem, setIsCreateRoutineOpen],
   );
 
+  const handleBulkAddRoutine = useCallback(
+    async (input: Parameters<typeof addItem>[0]) =>
+      addItem({
+        ...input,
+        recurrenceType: input.recurrenceType ?? "daily",
+      }),
+    [addItem],
+  );
+
   const newTaskForm = (
     <NewItemCard
       variant="task"
       onAddItem={handleAddTask}
+      onBulkAddItem={handleBulkAddTask}
       isSubmitting={isLoading}
       categoryOptions={categoryOptions}
       defaultCategory={fallbackCategory}
@@ -337,6 +353,7 @@ export function DashboardContent() {
     <NewItemCard
       variant="routine"
       onAddItem={handleAddRoutine}
+      onBulkAddItem={handleBulkAddRoutine}
       isSubmitting={isLoading}
       categoryOptions={categoryOptions}
       defaultCategory={fallbackCategory}
