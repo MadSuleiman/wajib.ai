@@ -12,13 +12,6 @@ import {
 } from "@/components/dashboard/list-utils";
 import type { RecurrenceType, TaskPriority, TaskUrgency } from "@/types";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -414,284 +407,258 @@ export function NewItemCard({
   }, [isRoutine]);
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="space-y-1">
-            <CardTitle>
-              {isRoutine ? "Create routine" : "Create task"}
-            </CardTitle>
-            <CardDescription>
-              {isRoutine
-                ? "Set a cadence to maintain habits and recurring responsibilities."
-                : "Track one-off work with categories and priorities."}
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={handleImportFileChange}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isSubmitting || isBulkImporting}
-            >
-              Import CSV
-            </Button>
-          </div>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <p className="max-w-xl text-sm text-muted-foreground">
+          {isRoutine
+            ? "Set a cadence to maintain habits and recurring responsibilities."
+            : "Track one-off work with categories and priorities."}
+        </p>
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={handleImportFileChange}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isSubmitting || isBulkImporting}
+          >
+            Import CSV
+          </Button>
         </div>
-      </CardHeader>
-      <CardContent>
-        {importFileName ? (
-          <div className="mb-4 space-y-2 rounded-md border border-dashed p-3 text-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="font-medium">{importFileName}</p>
-                <p className="text-xs text-muted-foreground">
-                  {importRows.length
-                    ? `Ready to import ${importRows.length} rows.`
-                    : "No rows detected yet."}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleBulkImport}
-                  disabled={
-                    isSubmitting || isBulkImporting || !importRows.length
-                  }
-                >
-                  {isBulkImporting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Importing...
-                    </>
-                  ) : (
-                    "Run import"
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={resetImportState}
-                >
-                  Clear
-                </Button>
-              </div>
+      </div>
+      {importFileName ? (
+        <div className="space-y-2 rounded-md border border-dashed p-3 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="font-medium">{importFileName}</p>
+              <p className="text-xs text-muted-foreground">
+                {importRows.length
+                  ? `Ready to import ${importRows.length} rows.`
+                  : "No rows detected yet."}
+              </p>
             </div>
-            {importError ? (
-              <p className="text-xs text-destructive">{importError}</p>
-            ) : null}
-            {importPreview ? (
-              <pre className="max-h-40 overflow-auto rounded-md bg-muted px-3 py-2 text-xs">
-                {importPreview}
-              </pre>
-            ) : null}
-          </div>
-        ) : null}
-        <form onSubmit={handleSubmit} className="space-y-3 lg:space-y-2">
-          <div className="space-y-2">
-            <Label htmlFor="item-title">Title</Label>
-            <Input
-              id="item-title"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder={
-                isRoutine
-                  ? "Ex. Morning workout, weekly review, call parents"
-                  : "Ex. Renew passport, pick up groceries, watch The Office"
-              }
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 md:gap-2">
-            <div className="space-y-2">
-              <Label htmlFor="item-category">Category</Label>
-              <Popover
-                open={categoryPopoverOpen}
-                onOpenChange={setCategoryPopoverOpen}
-              >
-                <PopoverTrigger asChild>
-                  <Button
-                    id="item-category"
-                    type="button"
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={categoryPopoverOpen}
-                    className="w-full justify-between"
-                    disabled={!categoryOptions.length}
-                  >
-                    {selectedCategoryLabel}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-60 p-0">
-                  <Command>
-                    <CommandInput
-                      placeholder="Search category..."
-                      className="h-9"
-                    />
-                    <CommandList>
-                      <CommandEmpty>No category found.</CommandEmpty>
-                      <CommandGroup>
-                        {categoryOptions.map((option) => (
-                          <CommandItem
-                            key={option.value}
-                            value={option.value}
-                            onSelect={(currentValue) => {
-                              setCategorySelection(currentValue);
-                              setCategoryPopoverOpen(false);
-                            }}
-                          >
-                            {option.label}
-                            <Check
-                              className={cn(
-                                "ml-auto h-4 w-4",
-                                resolvedCategory === option.value
-                                  ? "opacity-100"
-                                  : "opacity-0",
-                              )}
-                            />
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-2">
-              <Label>Priority</Label>
-              <Select
-                value={priority}
-                onValueChange={(value: TaskPriority) => setPriority(value)}
-              >
-                <SelectTrigger className="w-full capitalize">
-                  <SelectValue placeholder="Select priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(priorityLabels) as TaskPriority[]).map(
-                    (option) => (
-                      <SelectItem key={option} value={option}>
-                        <div className="flex items-center gap-2">
-                          {priorityIcons[option]}
-                          <span>{priorityLabels[option]}</span>
-                        </div>
-                      </SelectItem>
-                    ),
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Urgency</Label>
-              <Select
-                value={urgency}
-                onValueChange={(value: TaskUrgency) => setUrgency(value)}
-              >
-                <SelectTrigger className="w-full capitalize">
-                  <SelectValue placeholder="Select urgency" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(urgencyLabels) as TaskUrgency[]).map(
-                    (option) => (
-                      <SelectItem key={option} value={option}>
-                        <div className="flex items-center gap-2">
-                          {urgencyIcons[option]}
-                          <span>{urgencyLabels[option]}</span>
-                        </div>
-                      </SelectItem>
-                    ),
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {isRoutine ? (
-            <div className="grid grid-cols-2 gap-3 md:gap-2">
-              <div className="space-y-2">
-                <Label>Recurrence</Label>
-                <Select
-                  value={recurrenceType}
-                  onValueChange={(value: RecurrenceType) =>
-                    setRecurrenceType(value)
-                  }
-                >
-                  <SelectTrigger className="w-full capitalize">
-                    <SelectValue placeholder="Choose cadence" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {recurrenceChoices.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  {
-                    recurrenceChoices.find(
-                      (option) => option.value === recurrenceType,
-                    )?.description
-                  }
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="item-recurrence-interval">Every</Label>
-                <Input
-                  id="item-recurrence-interval"
-                  type="number"
-                  min={1}
-                  value={recurrenceInterval}
-                  onChange={(event) =>
-                    setRecurrenceInterval(event.target.value)
-                  }
-                />
-              </div>
-            </div>
-          ) : null}
-
-          <div className="grid grid-cols-2 gap-3 md:gap-2">
-            <div className="space-y-2">
-              <Label htmlFor="item-hours">Estimated hours</Label>
-              <Input
-                id="item-hours"
-                inputMode="decimal"
-                value={hours}
-                onChange={(event) => setHours(event.target.value)}
-                placeholder="Optional"
-              />
-            </div>
-            <div className="flex items-end">
+            <div className="flex items-center gap-2">
               <Button
-                type="submit"
-                disabled={!title.trim() || isSubmitting || isBulkImporting}
-                className="w-full"
+                type="button"
+                size="sm"
+                onClick={handleBulkImport}
+                disabled={isSubmitting || isBulkImporting || !importRows.length}
               >
-                {isSubmitting ? (
+                {isBulkImporting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
+                    Importing...
                   </>
                 ) : (
-                  <>
-                    <Plus className="mr-2 h-4 w-4" />
-                    {isRoutine ? "Add routine" : "Add task"}
-                  </>
+                  "Run import"
                 )}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={resetImportState}
+              >
+                Clear
               </Button>
             </div>
           </div>
-        </form>
-      </CardContent>
-    </Card>
+          {importError ? (
+            <p className="text-xs text-destructive">{importError}</p>
+          ) : null}
+          {importPreview ? (
+            <pre className="max-h-40 overflow-auto rounded-md bg-muted px-3 py-2 text-xs">
+              {importPreview}
+            </pre>
+          ) : null}
+        </div>
+      ) : null}
+      <form onSubmit={handleSubmit} className="space-y-3 lg:space-y-2">
+        <div className="space-y-2">
+          <Label htmlFor="item-title">Title</Label>
+          <Input
+            id="item-title"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder={
+              isRoutine
+                ? "Ex. Morning workout, weekly review, call parents"
+                : "Ex. Renew passport, pick up groceries, watch The Office"
+            }
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 md:gap-2">
+          <div className="space-y-2">
+            <Label htmlFor="item-category">Category</Label>
+            <Popover open={categoryPopoverOpen} onOpenChange={setCategoryPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  id="item-category"
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={categoryPopoverOpen}
+                  className="w-full justify-between"
+                  disabled={!categoryOptions.length}
+                >
+                  {selectedCategoryLabel}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-60 p-0">
+                <Command>
+                  <CommandInput placeholder="Search category..." className="h-9" />
+                  <CommandList>
+                    <CommandEmpty>No category found.</CommandEmpty>
+                    <CommandGroup>
+                      {categoryOptions.map((option) => (
+                        <CommandItem
+                          key={option.value}
+                          value={option.value}
+                          onSelect={(currentValue) => {
+                            setCategorySelection(currentValue);
+                            setCategoryPopoverOpen(false);
+                          }}
+                        >
+                          {option.label}
+                          <Check
+                            className={cn(
+                              "ml-auto h-4 w-4",
+                              resolvedCategory === option.value
+                                ? "opacity-100"
+                                : "opacity-0",
+                            )}
+                          />
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="space-y-2">
+            <Label>Priority</Label>
+            <Select
+              value={priority}
+              onValueChange={(value: TaskPriority) => setPriority(value)}
+            >
+              <SelectTrigger className="w-full capitalize">
+                <SelectValue placeholder="Select priority" />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(priorityLabels) as TaskPriority[]).map((option) => (
+                  <SelectItem key={option} value={option}>
+                    <div className="flex items-center gap-2">
+                      {priorityIcons[option]}
+                      <span>{priorityLabels[option]}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Urgency</Label>
+            <Select
+              value={urgency}
+              onValueChange={(value: TaskUrgency) => setUrgency(value)}
+            >
+              <SelectTrigger className="w-full capitalize">
+                <SelectValue placeholder="Select urgency" />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(urgencyLabels) as TaskUrgency[]).map((option) => (
+                  <SelectItem key={option} value={option}>
+                    <div className="flex items-center gap-2">
+                      {urgencyIcons[option]}
+                      <span>{urgencyLabels[option]}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {isRoutine ? (
+          <div className="grid grid-cols-2 gap-3 md:gap-2">
+            <div className="space-y-2">
+              <Label>Recurrence</Label>
+              <Select
+                value={recurrenceType}
+                onValueChange={(value: RecurrenceType) => setRecurrenceType(value)}
+              >
+                <SelectTrigger className="w-full capitalize">
+                  <SelectValue placeholder="Choose cadence" />
+                </SelectTrigger>
+                <SelectContent>
+                  {recurrenceChoices.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {
+                  recurrenceChoices.find((option) => option.value === recurrenceType)
+                    ?.description
+                }
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="item-recurrence-interval">Every</Label>
+              <Input
+                id="item-recurrence-interval"
+                type="number"
+                min={1}
+                value={recurrenceInterval}
+                onChange={(event) => setRecurrenceInterval(event.target.value)}
+              />
+            </div>
+          </div>
+        ) : null}
+
+        <div className="grid grid-cols-2 gap-3 md:gap-2">
+          <div className="space-y-2">
+            <Label htmlFor="item-hours">Estimated hours</Label>
+            <Input
+              id="item-hours"
+              inputMode="decimal"
+              value={hours}
+              onChange={(event) => setHours(event.target.value)}
+              placeholder="Optional"
+            />
+          </div>
+          <div className="flex items-end">
+            <Button
+              type="submit"
+              disabled={!title.trim() || isSubmitting || isBulkImporting}
+              className="w-full"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Plus className="mr-2 h-4 w-4" />
+                  {isRoutine ? "Add routine" : "Add task"}
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </form>
+    </div>
   );
 }
