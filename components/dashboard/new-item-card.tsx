@@ -497,7 +497,10 @@ export function NewItemCard({
         <div className="grid grid-cols-2 gap-3 md:gap-2">
           <div className="space-y-2">
             <Label htmlFor="item-category">Category</Label>
-            <Popover open={categoryPopoverOpen} onOpenChange={setCategoryPopoverOpen}>
+            <Popover
+              open={categoryPopoverOpen}
+              onOpenChange={setCategoryPopoverOpen}
+            >
               <PopoverTrigger asChild>
                 <Button
                   id="item-category"
@@ -514,7 +517,10 @@ export function NewItemCard({
               </PopoverTrigger>
               <PopoverContent className="w-60 p-0">
                 <Command>
-                  <CommandInput placeholder="Search category..." className="h-9" />
+                  <CommandInput
+                    placeholder="Search category..."
+                    className="h-9"
+                  />
                   <CommandList>
                     <CommandEmpty>No category found.</CommandEmpty>
                     <CommandGroup>
@@ -554,14 +560,16 @@ export function NewItemCard({
                 <SelectValue placeholder="Select priority" />
               </SelectTrigger>
               <SelectContent>
-                {(Object.keys(priorityLabels) as TaskPriority[]).map((option) => (
-                  <SelectItem key={option} value={option}>
-                    <div className="flex items-center gap-2">
-                      {priorityIcons[option]}
-                      <span>{priorityLabels[option]}</span>
-                    </div>
-                  </SelectItem>
-                ))}
+                {(Object.keys(priorityLabels) as TaskPriority[]).map(
+                  (option) => (
+                    <SelectItem key={option} value={option}>
+                      <div className="flex items-center gap-2">
+                        {priorityIcons[option]}
+                        <span>{priorityLabels[option]}</span>
+                      </div>
+                    </SelectItem>
+                  ),
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -594,7 +602,9 @@ export function NewItemCard({
               <Label>Recurrence</Label>
               <Select
                 value={recurrenceType}
-                onValueChange={(value: RecurrenceType) => setRecurrenceType(value)}
+                onValueChange={(value: RecurrenceType) =>
+                  setRecurrenceType(value)
+                }
               >
                 <SelectTrigger className="w-full capitalize">
                   <SelectValue placeholder="Choose cadence" />
@@ -609,8 +619,9 @@ export function NewItemCard({
               </Select>
               <p className="text-xs text-muted-foreground">
                 {
-                  recurrenceChoices.find((option) => option.value === recurrenceType)
-                    ?.description
+                  recurrenceChoices.find(
+                    (option) => option.value === recurrenceType,
+                  )?.description
                 }
               </p>
             </div>
