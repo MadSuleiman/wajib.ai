@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import React, { useCallback, useMemo, useState, type ReactNode } from "react";
 import { endOfDay, formatDistanceStrict, formatDistanceToNow } from "date-fns";
 import { CheckCircle2, Circle, Pencil, Trash2 } from "lucide-react";
 
@@ -33,6 +33,7 @@ import {
 } from "@/lib/timezone";
 import { TaskEditor } from "./task-editor";
 import { RoutineEditor } from "./routine-editor";
+import { itemAnchorId } from "./item-anchor";
 
 const formatAddedDescription = (createdAt: string, timeZone: string) => {
   const absolute = formatLocalDateTime(createdAt, timeZone);
@@ -427,9 +428,13 @@ function DesktopTable({
         const isCompleted =
           (derivedStatuses.get(item.id) ?? "active") === "completed";
         const itemLabel = item.item_kind === "routine" ? "routine" : "task";
+        const rowWithId = React.cloneElement(
+          row as React.ReactElement<{ id?: string }>,
+          { id: itemAnchorId(item.id) },
+        );
         return (
           <ContextMenu key={rowKey}>
-            <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
+            <ContextMenuTrigger asChild>{rowWithId}</ContextMenuTrigger>
             <ContextMenuContent className="w-48">
               <ContextMenuItem
                 onSelect={() => {
@@ -507,6 +512,7 @@ function MobileList({
                 return (
                   <div
                     key={item.id}
+                    id={itemAnchorId(item.id)}
                     className="rounded-2xl border bg-card/50 p-4 shadow-sm backdrop-blur"
                   >
                     <div className="flex items-start justify-between gap-3">

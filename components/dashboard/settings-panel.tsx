@@ -27,6 +27,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { useDailyHighlightPreference } from "@/hooks/use-daily-highlight-preference";
 
 interface ErrorWithMessage {
   message: string;
@@ -49,6 +51,8 @@ export function SettingsPanel() {
   const supabase = createClientSupabaseClient();
   const { theme, setTheme } = useTheme();
   const { items } = useSupabase();
+  const { isEnabled: isDailyHighlightEnabled, setIsEnabled } =
+    useDailyHighlightPreference();
 
   useEffect(() => {
     async function getUserEmail() {
@@ -127,6 +131,27 @@ export function SettingsPanel() {
                   <SelectItem value="dark">Dark</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Daily highlight</CardTitle>
+            <CardDescription>
+              Show a task and routine spotlight at the top of your dashboard
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="daily-highlight-toggle">
+                Enable daily highlight
+              </Label>
+              <Switch
+                id="daily-highlight-toggle"
+                checked={isDailyHighlightEnabled}
+                onCheckedChange={setIsEnabled}
+              />
             </div>
           </CardContent>
         </Card>
