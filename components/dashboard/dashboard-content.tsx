@@ -7,7 +7,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { Filter } from "lucide-react";
+import { ArrowUpRight, Filter } from "lucide-react";
 
 import { useSupabase } from "@/components/dashboard/supabase-provider";
 import { useCreationDialogs } from "@/components/dashboard/creation-dialogs-context";
@@ -149,7 +149,15 @@ const getDailyHighlightSnapshot = () => {
 
 const getDailyHighlightServerSnapshot = () => null;
 
-export function DashboardContent() {
+type DashboardContentProps = {
+  focusKind?: "tasks" | "routines";
+  isPopout?: boolean;
+};
+
+export function DashboardContent({
+  focusKind,
+  isPopout = false,
+}: DashboardContentProps) {
   const isMobile = useIsMobile();
   const supabaseContext = useSupabase();
   const {
@@ -177,6 +185,7 @@ export function DashboardContent() {
   const [showFilters, setShowFilters] = useState(false);
   const [activeTab, setActiveTab] = useState<"tasks" | "routines">("tasks");
   const { isEnabled: isDailyHighlightEnabled } = useDailyHighlightPreference();
+  const allowPopout = !isPopout;
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -464,6 +473,19 @@ export function DashboardContent() {
     [isMobile, setActiveTab],
   );
 
+  const handleOpenPopout = useCallback((kind: "tasks" | "routines") => {
+    if (typeof window === "undefined") return;
+    const popoutUrl = new URL(`/popout/${kind}`, window.location.origin);
+    const features =
+      "popup=yes,width=460,height=720,top=80,left=80,noopener,noreferrer";
+    const popout = window.open(
+      popoutUrl.toString(),
+      `wajib-${kind}-popout`,
+      features,
+    );
+    popout?.focus();
+  }, []);
+
   const fallbackCategory = categories[0]?.slug ?? "task";
   const handleAddTask = useCallback(
     async (input: Parameters<typeof addItem>[0]) => {
@@ -581,29 +603,81 @@ export function DashboardContent() {
     </Dialog>
   );
 
+  const renderListSection = (kind: "tasks" | "routines") => {
+    const isTask = kind === "tasks";
+    const title = isTask ? "Tasks" : "Routines";
+    const summaryText = isTask ? summaryTextTasks : summaryTextRoutines;
+    const view = isTask ? taskView : routineView;
+    const variant = isTask ? "task" : "routine";
+
+    return (
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold">{title}</h2>
+            {allowPopout ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => handleOpenPopout(kind)}
+                className="text-muted-foreground hover:text-foreground"
+                aria-label={`Pop out ${title.toLowerCase()}`}
+              >
+                <ArrowUpRight className="h-4 w-4" />
+              </Button>
+            ) : null}
+          </div>
+          <p className="text-xs text-muted-foreground">{summaryText}</p>
+        </div>
+        <ItemsView
+          isMobile={isMobile}
+          variant={variant}
+          currentTime={timeMarker}
+          summaryText={summaryText}
+          prioritizedItems={view.prioritized}
+          displayGroups={view.groupedItems}
+          categoryMap={categoryMap}
+          categoryOptions={categoryOptions}
+          derivedStatuses={derivedStatuses}
+          updateItemDetails={updateItemDetails}
+          toggleItemCompletion={toggleItemCompletion}
+          deleteItem={deleteItem}
+          emptyStateContent={emptyStateContent}
+          tableSortState={view.tableSortState}
+          onTableSortChange={handleTableSortChange}
+        />
+      </section>
+    );
+  };
+
+  const focusedSection = focusKind ? renderListSection(focusKind) : null;
+
   return (
     <div className="space-y-6">
       {createRoutineLauncher}
       {createTaskLauncher}
 
-      <div className="flex justify-between gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowInsights((prev) => !prev)}
-        >
-          {showInsights ? "Hide task insights" : "Show task insights"}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowFilters((prev) => !prev)}
-        >
-          {showFilters ? "Hide filters" : "Show filters"}
-        </Button>
-      </div>
+      {!isPopout ? (
+        <div className="flex justify-between gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowInsights((prev) => !prev)}
+          >
+            {showInsights ? "Hide task insights" : "Show task insights"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFilters((prev) => !prev)}
+          >
+            {showFilters ? "Hide filters" : "Show filters"}
+          </Button>
+        </div>
+      ) : null}
 
-      {isDailyHighlightEnabled ? (
+      {!isPopout && isDailyHighlightEnabled ? (
         <DailyHighlightCard
           task={dailyTask}
           routine={dailyRoutine}
@@ -614,7 +688,7 @@ export function DashboardContent() {
         />
       ) : null}
 
-      {showInsights ? (
+      {!isPopout && showInsights ? (
         <InsightsGrid
           categoryChartData={categoryChartData}
           recurringBreakdownData={recurringBreakdownData}
@@ -627,7 +701,7 @@ export function DashboardContent() {
           recurringCount={recurringCount}
         />
       ) : null}
-      {showFilters ? (
+      {!isPopout && showFilters ? (
         <FiltersCard
           statusFilter={statusFilter}
           onStatusChange={setStatusFilter}
@@ -642,7 +716,9 @@ export function DashboardContent() {
         />
       ) : null}
 
-      {isMobile ? (
+      {focusKind ? (
+        focusedSection
+      ) : isMobile ? (
         <Tabs
           value={activeTab}
           onValueChange={(value) =>
@@ -654,114 +730,15 @@ export function DashboardContent() {
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="routines">Routines</TabsTrigger>
           </TabsList>
-          <TabsContent value="tasks">
-            <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Tasks</h2>
-                <p className="text-xs text-muted-foreground">
-                  {summaryTextTasks}
-                </p>
-              </div>
-              <ItemsView
-                isMobile={isMobile}
-                variant="task"
-                currentTime={timeMarker}
-                summaryText={summaryTextTasks}
-                prioritizedItems={taskView.prioritized}
-                displayGroups={taskView.groupedItems}
-                categoryMap={categoryMap}
-                categoryOptions={categoryOptions}
-                derivedStatuses={derivedStatuses}
-                updateItemDetails={updateItemDetails}
-                toggleItemCompletion={toggleItemCompletion}
-                deleteItem={deleteItem}
-                emptyStateContent={emptyStateContent}
-                tableSortState={taskView.tableSortState}
-                onTableSortChange={handleTableSortChange}
-              />
-            </section>
-          </TabsContent>
+          <TabsContent value="tasks">{renderListSection("tasks")}</TabsContent>
           <TabsContent value="routines">
-            <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Routines</h2>
-                <p className="text-xs text-muted-foreground">
-                  {summaryTextRoutines}
-                </p>
-              </div>
-              <ItemsView
-                isMobile={isMobile}
-                variant="routine"
-                currentTime={timeMarker}
-                summaryText={summaryTextRoutines}
-                prioritizedItems={routineView.prioritized}
-                displayGroups={routineView.groupedItems}
-                categoryMap={categoryMap}
-                categoryOptions={categoryOptions}
-                derivedStatuses={derivedStatuses}
-                updateItemDetails={updateItemDetails}
-                toggleItemCompletion={toggleItemCompletion}
-                deleteItem={deleteItem}
-                emptyStateContent={emptyStateContent}
-                tableSortState={routineView.tableSortState}
-                onTableSortChange={handleTableSortChange}
-              />
-            </section>
+            {renderListSection("routines")}
           </TabsContent>
         </Tabs>
       ) : (
         <div className="grid grid-cols-2 gap-6">
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Tasks</h2>
-              <p className="text-xs text-muted-foreground">
-                {summaryTextTasks}
-              </p>
-            </div>
-            <ItemsView
-              isMobile={isMobile}
-              variant="task"
-              currentTime={timeMarker}
-              summaryText={summaryTextTasks}
-              prioritizedItems={taskView.prioritized}
-              displayGroups={taskView.groupedItems}
-              categoryMap={categoryMap}
-              categoryOptions={categoryOptions}
-              derivedStatuses={derivedStatuses}
-              updateItemDetails={updateItemDetails}
-              toggleItemCompletion={toggleItemCompletion}
-              deleteItem={deleteItem}
-              emptyStateContent={emptyStateContent}
-              tableSortState={taskView.tableSortState}
-              onTableSortChange={handleTableSortChange}
-            />
-          </section>
-
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Routines</h2>
-              <p className="text-xs text-muted-foreground">
-                {summaryTextRoutines}
-              </p>
-            </div>
-            <ItemsView
-              isMobile={isMobile}
-              variant="routine"
-              currentTime={timeMarker}
-              summaryText={summaryTextRoutines}
-              prioritizedItems={routineView.prioritized}
-              displayGroups={routineView.groupedItems}
-              categoryMap={categoryMap}
-              categoryOptions={categoryOptions}
-              derivedStatuses={derivedStatuses}
-              updateItemDetails={updateItemDetails}
-              toggleItemCompletion={toggleItemCompletion}
-              deleteItem={deleteItem}
-              emptyStateContent={emptyStateContent}
-              tableSortState={routineView.tableSortState}
-              onTableSortChange={handleTableSortChange}
-            />
-          </section>
+          {renderListSection("tasks")}
+          {renderListSection("routines")}
         </div>
       )}
     </div>
