@@ -1,6 +1,12 @@
 import React, { useCallback, useMemo, useState, type ReactNode } from "react";
 import { endOfDay, formatDistanceStrict, formatDistanceToNow } from "date-fns";
-import { CheckCircle2, Circle, Pencil, Trash2 } from "lucide-react";
+import {
+  CalendarPlus,
+  CheckCircle2,
+  Circle,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import {
@@ -66,6 +72,7 @@ type ItemsViewProps = {
   ) => Promise<boolean>;
   toggleItemCompletion: (item: ListItem) => Promise<boolean>;
   deleteItem: (itemId: string) => Promise<boolean>;
+  onScheduleItem: (item: ListItem) => void;
   emptyStateContent: ReactNode;
   tableSortState?: DataTableSortState;
   onTableSortChange: (nextSort: DataTableSortState) => void;
@@ -84,6 +91,7 @@ export function ItemsView({
   updateItemDetails,
   toggleItemCompletion,
   deleteItem,
+  onScheduleItem,
   emptyStateContent,
   tableSortState,
   onTableSortChange,
@@ -149,6 +157,7 @@ export function ItemsView({
             derivedStatuses={derivedStatuses}
             toggleItemCompletion={toggleItemCompletion}
             deleteItem={deleteItem}
+            onScheduleItem={onScheduleItem}
             formatAdded={formatAdded}
             onEditTask={handleOpenEditor}
             getRoutineTiming={getRoutineTiming}
@@ -167,6 +176,7 @@ export function ItemsView({
           derivedStatuses={derivedStatuses}
           toggleItemCompletion={toggleItemCompletion}
           deleteItem={deleteItem}
+          onScheduleItem={onScheduleItem}
           emptyState={emptyStateContent}
           sortState={tableSortState}
           onSortChange={onTableSortChange}
@@ -207,6 +217,7 @@ type DesktopTableProps = {
   derivedStatuses: Map<string, DerivedStatus>;
   toggleItemCompletion: (item: ListItem) => Promise<boolean>;
   deleteItem: (itemId: string) => Promise<boolean>;
+  onScheduleItem: (item: ListItem) => void;
   emptyState: React.ReactNode;
   sortState?: DataTableSortState;
   onSortChange: (nextSort: DataTableSortState) => void;
@@ -225,6 +236,7 @@ function DesktopTable({
   derivedStatuses,
   toggleItemCompletion,
   deleteItem,
+  onScheduleItem,
   emptyState,
   sortState,
   onSortChange,
@@ -450,6 +462,13 @@ function DesktopTable({
               >
                 Edit {itemLabel}
               </ContextMenuItem>
+              <ContextMenuItem
+                onSelect={() => {
+                  onScheduleItem(item);
+                }}
+              >
+                Schedule 30-min block
+              </ContextMenuItem>
               <ContextMenuSeparator />
               <ContextMenuItem
                 className="text-destructive focus:text-destructive"
@@ -473,6 +492,7 @@ type MobileListProps = {
   derivedStatuses: Map<string, DerivedStatus>;
   toggleItemCompletion: (item: ListItem) => Promise<boolean>;
   deleteItem: (itemId: string) => Promise<boolean>;
+  onScheduleItem: (item: ListItem) => void;
   formatAdded: (value: string) => string;
   onEditTask: (item: ListItem) => void;
   getRoutineTiming: (
@@ -486,6 +506,7 @@ function MobileList({
   derivedStatuses,
   toggleItemCompletion,
   deleteItem,
+  onScheduleItem,
   formatAdded,
   onEditTask,
   getRoutineTiming,
@@ -598,6 +619,15 @@ function MobileList({
                         className="flex items-center gap-2"
                       >
                         <Pencil className="h-4 w-4" /> Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onScheduleItem(item)}
+                        className="flex items-center gap-2"
+                      >
+                        <CalendarPlus className="h-4 w-4" /> Schedule
                       </Button>
                       <Button
                         type="button"

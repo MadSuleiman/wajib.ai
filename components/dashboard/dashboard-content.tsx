@@ -7,6 +7,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { addMinutes } from "date-fns";
 import { ArrowUpRight, Filter } from "lucide-react";
 
 import { useSupabase } from "@/components/dashboard/supabase-provider";
@@ -37,6 +38,8 @@ import {
 } from "@/components/dashboard/list-utils";
 import type { Category, ListItem, RecurrenceType } from "@/types";
 import type { DataTableSortState } from "@/components/ui/data-table";
+import { buildGoogleCalendarUrl } from "@/lib/calendar";
+import { getLocalTimeZone } from "@/lib/timezone";
 
 import {
   columnIdBySortKey,
@@ -56,6 +59,7 @@ import { FiltersCard } from "./filters-card";
 import { ItemsView } from "./items-view";
 import { DailyHighlightCard } from "./daily-highlight-card";
 import { itemAnchorId } from "./item-anchor";
+import { ScheduleBlockDialog } from "./schedule-block-dialog";
 
 const getDerivedStatus = (item: ListItem, now: number): DerivedStatus => {
   void now;
@@ -184,8 +188,11 @@ export function DashboardContent({
   const [showInsights, setShowInsights] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [activeTab, setActiveTab] = useState<"tasks" | "routines">("tasks");
+  const [scheduleItem, setScheduleItem] = useState<ListItem | null>(null);
+  const [isScheduleOpen, setIsScheduleOpen] = useState(false);
   const { isEnabled: isDailyHighlightEnabled } = useDailyHighlightPreference();
   const allowPopout = !isPopout;
+  const timeZone = useMemo(() => getLocalTimeZone(), []);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -473,6 +480,33 @@ export function DashboardContent({
     [isMobile, setActiveTab],
   );
 
+  const handleOpenSchedule = useCallback((item: ListItem) => {
+    setScheduleItem(item);
+    setIsScheduleOpen(true);
+  }, []);
+
+  const handleScheduleOpenChange = useCallback((open: boolean) => {
+    setIsScheduleOpen(open);
+    if (!open) {
+      setScheduleItem(null);
+    }
+  }, []);
+
+  const handleScheduleBlock = useCallback(
+    (item: ListItem, startTime: Date) => {
+      if (typeof window === "undefined") return;
+      const endTime = addMinutes(startTime, 30);
+      const url = buildGoogleCalendarUrl({
+        title: item.title,
+        start: startTime,
+        end: endTime,
+        timeZone,
+      });
+      window.open(url, "_blank", "noopener,noreferrer");
+    },
+    [timeZone],
+  );
+
   const handleOpenPopout = useCallback((kind: "tasks" | "routines") => {
     if (typeof window === "undefined") return;
     const popoutUrl = new URL(`/popout/${kind}`, window.location.origin);
@@ -643,6 +677,7 @@ export function DashboardContent({
           updateItemDetails={updateItemDetails}
           toggleItemCompletion={toggleItemCompletion}
           deleteItem={deleteItem}
+          onScheduleItem={handleOpenSchedule}
           emptyStateContent={emptyStateContent}
           tableSortState={view.tableSortState}
           onTableSortChange={handleTableSortChange}
@@ -657,6 +692,13 @@ export function DashboardContent({
     <div className="space-y-6">
       {createRoutineLauncher}
       {createTaskLauncher}
+      <ScheduleBlockDialog
+        isOpen={isScheduleOpen}
+        onOpenChange={handleScheduleOpenChange}
+        item={scheduleItem}
+        isMobile={isMobile}
+        onSchedule={handleScheduleBlock}
+      />
 
       {!isPopout ? (
         <div className="flex justify-between gap-2">
@@ -685,6 +727,7 @@ export function DashboardContent({
           categoryMap={categoryMap}
           onOpenItem={handleOpenItem}
           onToggleComplete={(item) => void toggleItemCompletion(item)}
+          onScheduleItem={handleOpenSchedule}
         />
       ) : null}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Sparkles } from "lucide-react";
+import { CalendarPlus, CheckCircle2, Sparkles } from "lucide-react";
 
 import type { ListItem } from "@/types";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ type HighlightItemProps = {
   categoryMap: Map<string, CategoryOption>;
   onOpenItem: (item: ListItem) => void;
   onToggleComplete: (item: ListItem) => void;
+  onScheduleItem: (item: ListItem) => void;
 };
 
 function HighlightItem({
@@ -27,6 +28,7 @@ function HighlightItem({
   categoryMap,
   onOpenItem,
   onToggleComplete,
+  onScheduleItem,
 }: HighlightItemProps) {
   if (!item) {
     return (
@@ -84,6 +86,15 @@ function HighlightItem({
         <Button
           type="button"
           size="sm"
+          variant="outline"
+          onClick={() => onScheduleItem(item)}
+        >
+          <CalendarPlus className="mr-2 h-4 w-4" />
+          Schedule 30 min
+        </Button>
+        <Button
+          type="button"
+          size="sm"
           onClick={() => onToggleComplete(item)}
           variant={status === "completed" ? "secondary" : "default"}
         >
@@ -102,6 +113,7 @@ type DailyHighlightCardProps = {
   categoryMap: Map<string, CategoryOption>;
   onOpenItem: (item: ListItem) => void;
   onToggleComplete: (item: ListItem) => void;
+  onScheduleItem: (item: ListItem) => void;
 };
 
 export function DailyHighlightCard({
@@ -111,6 +123,7 @@ export function DailyHighlightCard({
   categoryMap,
   onOpenItem,
   onToggleComplete,
+  onScheduleItem,
 }: DailyHighlightCardProps) {
   return (
     <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-background to-transparent">
@@ -128,6 +141,7 @@ export function DailyHighlightCard({
           categoryMap={categoryMap}
           onOpenItem={onOpenItem}
           onToggleComplete={onToggleComplete}
+          onScheduleItem={onScheduleItem}
         />
         <HighlightItem
           label="Routine spotlight"
@@ -136,6 +150,7 @@ export function DailyHighlightCard({
           categoryMap={categoryMap}
           onOpenItem={onOpenItem}
           onToggleComplete={onToggleComplete}
+          onScheduleItem={onScheduleItem}
         />
       </CardContent>
     </Card>
