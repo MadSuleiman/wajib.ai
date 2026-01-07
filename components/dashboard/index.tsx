@@ -7,7 +7,6 @@ import { DashboardContent } from "@/components/dashboard/dashboard-content";
 import { SettingsPanel } from "@/components/dashboard/settings-panel";
 import { SupabaseProvider } from "@/components/dashboard/supabase-provider";
 import type { Category, ListItem } from "@/types";
-import { useIsMobile } from "@/hooks/use-mobile";
 import {
   useDashboardView,
   type DashboardView,
@@ -18,12 +17,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
 
 export default function Dashboard({
   initialItems,
@@ -34,7 +27,6 @@ export default function Dashboard({
   initialCategories: Category[];
   initialView: DashboardView;
 }) {
-  const isMobile = useIsMobile();
   const { view, setView } = useDashboardView();
   const isSettingsOpen = view === "settings";
 
@@ -78,7 +70,7 @@ export default function Dashboard({
       </div>
 
       <Dialog
-        open={!isMobile && isSettingsOpen}
+        open={isSettingsOpen}
         onOpenChange={(open) => !open && closeSettings()}
       >
         <DialogContent className="max-h-[90vh] w-full max-w-[min(90vw,900px)] overflow-hidden border-none p-0">
@@ -92,27 +84,6 @@ export default function Dashboard({
           </div>
         </DialogContent>
       </Dialog>
-
-      <Drawer
-        direction="bottom"
-        open={isMobile && isSettingsOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            closeSettings();
-          }
-        }}
-      >
-        <DrawerContent className="max-h-[85vh] overflow-hidden">
-          <DrawerHeader className="sr-only">
-            <DrawerTitle>Settings</DrawerTitle>
-          </DrawerHeader>
-          <div className="flex h-full max-h-[85vh] flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto px-4 pb-6 pt-2">
-              <SettingsPanel />
-            </div>
-          </div>
-        </DrawerContent>
-      </Drawer>
     </SupabaseProvider>
   );
 }

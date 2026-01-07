@@ -193,7 +193,6 @@ export function ItemsView({
           item={editorItem}
           categoryOptions={categoryOptions}
           onSave={updateItemDetails}
-          isMobile={isMobile}
         />
       ) : (
         <TaskEditor
@@ -202,7 +201,6 @@ export function ItemsView({
           item={editorItem}
           categoryOptions={categoryOptions}
           onSave={updateItemDetails}
-          isMobile={isMobile}
         />
       )}
     </div>

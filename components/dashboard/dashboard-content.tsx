@@ -22,12 +22,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   groupItems,
@@ -583,20 +577,7 @@ export function DashboardContent({
     />
   );
 
-  const createTaskLauncher = isMobile ? (
-    <Drawer
-      open={isCreateTaskOpen}
-      onOpenChange={setIsCreateTaskOpen}
-      direction="bottom"
-    >
-      <DrawerContent className="max-h-[85vh] overflow-hidden">
-        <DrawerHeader className="sr-only">
-          <DrawerTitle>Create task</DrawerTitle>
-        </DrawerHeader>
-        <div className="overflow-y-auto p-4 pt-2">{newTaskForm}</div>
-      </DrawerContent>
-    </Drawer>
-  ) : (
+  const createTaskLauncher = (
     <Dialog open={isCreateTaskOpen} onOpenChange={setIsCreateTaskOpen}>
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
@@ -610,20 +591,7 @@ export function DashboardContent({
     </Dialog>
   );
 
-  const createRoutineLauncher = isMobile ? (
-    <Drawer
-      open={isCreateRoutineOpen}
-      onOpenChange={setIsCreateRoutineOpen}
-      direction="bottom"
-    >
-      <DrawerContent className="max-h-[85vh] overflow-hidden">
-        <DrawerHeader className="sr-only">
-          <DrawerTitle>Create routine</DrawerTitle>
-        </DrawerHeader>
-        <div className="overflow-y-auto p-4 pt-2">{newRoutineForm}</div>
-      </DrawerContent>
-    </Drawer>
-  ) : (
+  const createRoutineLauncher = (
     <Dialog open={isCreateRoutineOpen} onOpenChange={setIsCreateRoutineOpen}>
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
@@ -696,7 +664,6 @@ export function DashboardContent({
         isOpen={isScheduleOpen}
         onOpenChange={handleScheduleOpenChange}
         item={scheduleItem}
-        isMobile={isMobile}
         onSchedule={handleScheduleBlock}
       />
 

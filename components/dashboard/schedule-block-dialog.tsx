@@ -12,12 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -59,7 +53,6 @@ type ScheduleBlockDialogProps = {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   item: ListItem | null;
-  isMobile: boolean;
   onSchedule: (item: ListItem, startTime: Date) => void;
 };
 
@@ -67,7 +60,6 @@ export function ScheduleBlockDialog({
   isOpen,
   onOpenChange,
   item,
-  isMobile,
   onSchedule,
 }: ScheduleBlockDialogProps) {
   const timeInputRef = useRef<HTMLInputElement | null>(null);
@@ -125,22 +117,9 @@ export function ScheduleBlockDialog({
     </div>
   );
 
-  if (isMobile) {
-    return (
-      <Drawer open={isOpen} onOpenChange={onOpenChange} direction="bottom">
-        <DrawerContent className="max-h-[85vh] overflow-hidden">
-          <DrawerHeader>
-            <DrawerTitle>Schedule block</DrawerTitle>
-          </DrawerHeader>
-          <div className="overflow-y-auto p-4 pt-2">{content}</div>
-        </DrawerContent>
-      </Drawer>
-    );
-  }
-
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Schedule block</DialogTitle>
           <DialogDescription>

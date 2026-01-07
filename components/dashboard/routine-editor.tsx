@@ -23,14 +23,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerDescription,
-} from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -65,7 +57,6 @@ interface RoutineEditorProps {
       recurrence?: { type: RecurrenceType; interval: number };
     },
   ) => Promise<boolean>;
-  isMobile: boolean;
 }
 
 interface FormState {
@@ -280,7 +271,6 @@ export function RoutineEditor({
   item,
   categoryOptions,
   onSave,
-  isMobile,
 }: RoutineEditorProps) {
   const [formState, setFormState] = useState<FormState>(() =>
     getInitialState(item),
@@ -330,44 +320,9 @@ export function RoutineEditor({
     [formState, item, onOpenChange, onSave],
   );
 
-  if (isMobile) {
-    return (
-      <Drawer open={isOpen} onOpenChange={onOpenChange} direction="bottom">
-        <DrawerContent className="max-h-[80vh] overflow-y-auto">
-          <DrawerHeader>
-            <DrawerTitle>Edit routine</DrawerTitle>
-            <DrawerDescription>
-              Adjust cadence and details while keeping your streaks sane.
-            </DrawerDescription>
-          </DrawerHeader>
-          <div className="px-4 pb-6">
-            <RoutineEditorForm
-              item={item}
-              formState={formState}
-              setFormState={setFormState}
-              onSubmit={handleSubmit}
-              isSaving={isSaving}
-              categoryOptions={categoryOptions}
-            />
-          </div>
-          <DrawerFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSaving}
-            >
-              Cancel
-            </Button>
-          </DrawerFooter>
-        </DrawerContent>
-      </Drawer>
-    );
-  }
-
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit routine</DialogTitle>
           <DialogDescription>
