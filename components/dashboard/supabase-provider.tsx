@@ -300,12 +300,9 @@ export function SupabaseProvider({
 
             if (error) throw error;
 
-            setCompletedRoutineIds((current) => {
-              const next = new Set(current);
-              next.delete(item.id);
-              return next;
-            });
-            refreshItem({ ...item, completed: false });
+            const nextSet = new Set(completedRoutineIdsRef.current);
+            nextSet.delete(item.id);
+            applyRoutineCompletionSet(nextSet);
             toast.success("Routine marked as active");
             return true;
           }
@@ -324,12 +321,9 @@ export function SupabaseProvider({
 
           if (error) throw error;
 
-          setCompletedRoutineIds((current) => {
-            const next = new Set(current);
-            next.add(item.id);
-            return next;
-          });
-          refreshItem({ ...item, completed: true });
+          const nextSet = new Set(completedRoutineIdsRef.current);
+          nextSet.add(item.id);
+          applyRoutineCompletionSet(nextSet);
 
           toast.success("Routine completed", {
             description: "Tracked for today.",
@@ -366,7 +360,7 @@ export function SupabaseProvider({
         return false;
       }
     },
-    [refreshItem, supabase],
+    [applyRoutineCompletionSet, refreshItem, supabase],
   );
 
   const updateItemPriority: ListStore["updateItemPriority"] = useCallback(
@@ -763,6 +757,21 @@ export function SupabaseProvider({
     let routineChannel: ReturnType<typeof supabase.channel> | null = null;
     let routineLogChannel: ReturnType<typeof supabase.channel> | null = null;
 
+    const stopRealtime = () => {
+      if (taskChannel) {
+        supabase.removeChannel(taskChannel);
+        taskChannel = null;
+      }
+      if (routineChannel) {
+        supabase.removeChannel(routineChannel);
+        routineChannel = null;
+      }
+      if (routineLogChannel) {
+        supabase.removeChannel(routineLogChannel);
+        routineLogChannel = null;
+      }
+    };
+
     const startRealtime = async () => {
       const {
         data: { user },
@@ -880,19 +889,27 @@ export function SupabaseProvider({
         .subscribe();
     };
 
+    const restartRealtimeWhenVisible = () => {
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState !== "visible"
+      ) {
+        return;
+      }
+      stopRealtime();
+      void startRealtime();
+    };
+
     void startRealtime();
+    document.addEventListener("visibilitychange", restartRealtimeWhenVisible);
 
     return () => {
       isCancelled = true;
-      if (taskChannel) {
-        supabase.removeChannel(taskChannel);
-      }
-      if (routineChannel) {
-        supabase.removeChannel(routineChannel);
-      }
-      if (routineLogChannel) {
-        supabase.removeChannel(routineLogChannel);
-      }
+      document.removeEventListener(
+        "visibilitychange",
+        restartRealtimeWhenVisible,
+      );
+      stopRealtime();
     };
   }, [refreshItem, removeItem, supabase]);
 
@@ -905,6 +922,35 @@ export function SupabaseProvider({
       console.error("Failed to refresh routine completions", error);
     });
   }, [refreshRoutineCompletionsForDay, routineCompletionDay, userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const refreshWhenVisible = () => {
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState !== "visible"
+      ) {
+        return;
+      }
+      void refreshRoutineCompletionsForDay({
+        userId,
+        dayKey: routineCompletionDayRef.current,
+      }).catch((error: unknown) => {
+        console.error("Failed to refresh routine completions", error);
+      });
+    };
+
+    const handleVisibilityChange = () => {
+      refreshWhenVisible();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [refreshRoutineCompletionsForDay, userId]);
 
   const value = useMemo(
     () => ({
