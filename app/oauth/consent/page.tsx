@@ -25,6 +25,7 @@ export default function OAuthConsentPage() {
   const [details, setDetails] = useState<AuthorizationDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   const authorizationId = useMemo(
     () => searchParams.get("authorization_id"),
@@ -50,6 +51,8 @@ export default function OAuthConsentPage() {
         router.push(redirectTo);
         return;
       }
+
+      setUserEmail(user.email ?? null);
 
       const { data, error } =
         await supabase.auth.oauth.getAuthorizationDetails(authorizationId);
@@ -129,6 +132,11 @@ export default function OAuthConsentPage() {
           <p className="text-sm text-muted-foreground">
             Approve access so your assistant can manage tasks in Wajib.
           </p>
+          {userEmail ? (
+            <p className="text-xs text-muted-foreground">
+              Signed in as {userEmail}
+            </p>
+          ) : null}
         </div>
 
         {loading ? (
@@ -168,7 +176,7 @@ export default function OAuthConsentPage() {
                 ))}
               </ul>
             </div>
-            <div className="flex flex-col gap-3 pt-2 sm:flex-row">
+            <div className="flex flex-col gap-3 pt-2">
               <Button
                 type="button"
                 className="w-full"
