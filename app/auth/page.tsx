@@ -4,6 +4,7 @@ import type React from "react";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -32,7 +33,13 @@ export default function AuthPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClientSupabaseClient();
+  const redirectParam = searchParams.get("redirectTo") ?? "/";
+  const redirectTo =
+    redirectParam.startsWith("/") && !redirectParam.startsWith("//")
+      ? redirectParam
+      : "/";
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +56,7 @@ export default function AuthPage() {
       }
 
       toast.success("Signed in successfully");
-      router.push("/");
+      router.push(redirectTo);
       router.refresh();
     } catch (error: unknown) {
       toast.error("Authentication failed", {
