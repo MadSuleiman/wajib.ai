@@ -340,9 +340,10 @@ export function SupabaseProvider({
       }
 
       try {
+        const nextCompleted = !item.completed;
         const { data, error } = await supabase
           .from("tasks")
-          .update({ completed: !item.completed } as never)
+          .update({ completed: nextCompleted } as never)
           .eq("id", item.id)
           .select()
           .single();
@@ -351,6 +352,9 @@ export function SupabaseProvider({
         if (data) {
           refreshItem(taskRowToListItem(data as never));
         }
+        toast.success(
+          nextCompleted ? "Task completed" : "Task marked as active",
+        );
         return true;
       } catch (error: unknown) {
         toast.error("Failed to update item", {

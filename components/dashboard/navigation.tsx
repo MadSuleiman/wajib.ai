@@ -1,16 +1,47 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { Settings } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useDashboardView } from "@/hooks/use-dashboard-view";
 import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
 import { useCreationDialogs } from "@/components/dashboard/creation-dialogs-context";
 
 export function Navigation() {
   const { view, setView } = useDashboardView();
   const { setIsCreateTaskOpen, setIsCreateRoutineOpen } = useCreationDialogs();
+
+  useEffect(() => {
+    const isEditableTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+      if (target.isContentEditable) return true;
+      return Boolean(
+        target.closest("input, textarea, select, [contenteditable]"),
+      );
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (isEditableTarget(event.target)) return;
+
+      const key = event.key.toLowerCase();
+      if (key === "t") {
+        event.preventDefault();
+        setIsCreateTaskOpen(true);
+      } else if (key === "r") {
+        event.preventDefault();
+        setIsCreateRoutineOpen(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [setIsCreateRoutineOpen, setIsCreateTaskOpen]);
 
   const openSettings = useCallback(() => {
     setView("settings");
@@ -38,16 +69,20 @@ export function Navigation() {
           <Button
             size="sm"
             variant="outline"
+            className="gap-2"
             onClick={() => setIsCreateRoutineOpen(true)}
           >
             Create routine
+            <Kbd aria-hidden="true">R</Kbd>
           </Button>
           <Button
             size="sm"
             variant="outline"
+            className="gap-2"
             onClick={() => setIsCreateTaskOpen(true)}
           >
             Create task
+            <Kbd aria-hidden="true">T</Kbd>
           </Button>
           <button
             type="button"
