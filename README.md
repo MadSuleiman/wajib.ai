@@ -19,9 +19,9 @@ Wajib is a modern task and routine manager built with Next.js 16, Supabase, and 
 
 ## Getting Started
 
-1. **Install dependencies** (pnpm recommended):
+1. **Install dependencies** (Bun recommended):
    ```bash
-   pnpm install
+   bun install
    ```
 2. **Create a `.env.local`** with your Supabase project keys:
    ```bash
@@ -30,17 +30,17 @@ Wajib is a modern task and routine manager built with Next.js 16, Supabase, and 
    ```
 3. **Run the development server:**
    ```bash
-   pnpm dev
+   bun dev
    ```
    The app will be available at [http://localhost:3000](http://localhost:3000).
 
 ## Useful Scripts
 
-- `pnpm dev` – start the app with Turbopack for rapid local iteration
-- `pnpm lint` – lint the codebase
-- `pnpm type-check` – run TypeScript checks
-- `pnpm build` – create a production build
-- `pnpm format` – format the project with Prettier
+- `bun dev` – start the app with Turbopack for rapid local iteration
+- `bun lint` – lint the codebase
+- `bun type-check` – run TypeScript checks
+- `bun build` – create a production build
+- `bun format` – format the project with Prettier
 
 ## Project Structure
 
@@ -52,4 +52,4 @@ Wajib is a modern task and routine manager built with Next.js 16, Supabase, and 
 
 ## Deployment
 
-The app is ready to deploy to any Next.js-compatible host. Provide the Supabase environment variables above, run `pnpm build`, and serve with `pnpm start` (or your platform’s adapter).
+The app is ready to deploy to any Next.js-compatible host. Provide the Supabase environment variables above, run `bun build`, and serve with `bun start` (or your platform’s adapter).
