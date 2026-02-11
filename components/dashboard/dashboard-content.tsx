@@ -8,7 +8,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { addMinutes } from "date-fns";
-import { ArrowUpRight, Filter } from "lucide-react";
+import { ArrowUpRight, Filter, Plus } from "lucide-react";
 
 import { useSupabase } from "@/components/dashboard/supabase-provider";
 import { useCreationDialogs } from "@/components/dashboard/creation-dialogs-context";
@@ -657,7 +657,7 @@ export function DashboardContent({
   const focusedSection = focusKind ? renderListSection(focusKind) : null;
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6${isMobile && !isPopout ? " pb-28" : ""}`}>
       {createRoutineLauncher}
       {createTaskLauncher}
       <ScheduleBlockDialog
@@ -751,6 +751,40 @@ export function DashboardContent({
           {renderListSection("routines")}
         </div>
       )}
+
+      {isMobile && !isPopout ? (
+        <div
+          className="pointer-events-none fixed inset-x-0 z-20 flex justify-between"
+          style={{
+            bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)",
+            paddingLeft:
+              "max(1rem, calc(env(safe-area-inset-left, 0px) + 0.75rem))",
+            paddingRight:
+              "max(1rem, calc(env(safe-area-inset-right, 0px) + 0.75rem))",
+          }}
+        >
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="pointer-events-auto h-11 rounded-md px-4"
+            onClick={() => setIsCreateRoutineOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            Routine
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="pointer-events-auto h-11 rounded-md px-4"
+            onClick={() => setIsCreateTaskOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            Task
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

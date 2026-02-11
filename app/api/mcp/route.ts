@@ -6,6 +6,114 @@ import { getSupabaseClientForToken } from "@/lib/mcp/supabase";
 
 export const runtime = "nodejs";
 
+type ErrorRecord = Record<string, unknown>;
+
+const isErrorRecord = (value: unknown): value is ErrorRecord =>
+  typeof value === "object" && value !== null;
+
+const safeJsonStringify = (value: unknown) => {
+  const seen = new WeakSet<object>();
+  return JSON.stringify(value, (_key, currentValue) => {
+    if (typeof currentValue === "object" && currentValue !== null) {
+      if (seen.has(currentValue)) return "[Circular]";
+      seen.add(currentValue);
+    }
+    if (currentValue instanceof Error) {
+      return {
+        name: currentValue.name,
+        message: currentValue.message,
+      };
+    }
+    return currentValue;
+  });
+};
+
+const extractErrorStatus = (error: ErrorRecord) => {
+  const directStatus =
+    typeof error.status === "number"
+      ? error.status
+      : typeof error.statusCode === "number"
+        ? error.statusCode
+        : undefined;
+  if (typeof directStatus === "number") return directStatus;
+
+  const response = isErrorRecord(error.response) ? error.response : undefined;
+  if (response && typeof response.status === "number") {
+    return response.status;
+  }
+
+  return undefined;
+};
+
+const normalizeToolError = (error: unknown) => {
+  const normalized: ErrorRecord = {};
+
+  if (error instanceof Error) {
+    normalized.message = error.message || "Unexpected error";
+  } else if (typeof error === "string") {
+    normalized.message = error;
+  } else if (isErrorRecord(error)) {
+    const candidateMessage =
+      (typeof error.message === "string" && error.message) ||
+      (typeof error.error === "string" && error.error) ||
+      (typeof error.error_description === "string" &&
+        error.error_description) ||
+      "";
+    normalized.message = candidateMessage || "Unexpected error";
+
+    const status = extractErrorStatus(error);
+    if (typeof status === "number") {
+      normalized.status = status;
+    }
+    if (typeof error.code === "string" && error.code) {
+      normalized.code = error.code;
+    }
+    if (typeof error.details === "string" && error.details) {
+      normalized.details = error.details;
+    }
+    if (typeof error.hint === "string" && error.hint) {
+      normalized.hint = error.hint;
+    }
+
+    const response = isErrorRecord(error.response) ? error.response : undefined;
+    const responseBody =
+      response?.body ?? response?.data ?? response?.error ?? error.body;
+    if (typeof responseBody !== "undefined") {
+      normalized.body = responseBody;
+    }
+  } else {
+    normalized.message = "Unexpected error";
+  }
+
+  return normalized;
+};
+
+type ToolHandler<TInput = unknown, TContext = unknown, TResult = unknown> = (
+  input: TInput,
+  context: TContext,
+) => Promise<TResult>;
+
+const withToolErrorHandling = <TInput, TContext, TResult>(
+  toolName: string,
+  handler: ToolHandler<TInput, TContext, TResult>,
+): ToolHandler<TInput, TContext, TResult> => {
+  return async (input, context) => {
+    try {
+      return await handler(input, context);
+    } catch (error: unknown) {
+      const normalized = normalizeToolError(error);
+      throw new Error(
+        safeJsonStringify({
+          error: {
+            tool: toolName,
+            ...normalized,
+          },
+        }),
+      );
+    }
+  };
+};
+
 const handler = createMcpHandler(
   (server) => {
     const prioritySchema = z.enum(["low", "medium", "high"]);
@@ -17,6 +125,26 @@ const handler = createMcpHandler(
         throw new Error("Unauthorized: missing access token.");
       }
       return token;
+    };
+
+    const requireUserId = async (
+      supabase: ReturnType<typeof getSupabaseClientForToken>,
+    ) => {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+
+      if (error) {
+        throw error;
+      }
+      if (!user?.id) {
+        throw {
+          message: "Unauthorized: missing authenticated user.",
+          status: 401,
+        };
+      }
+      return user.id;
     };
 
     server.registerTool(
@@ -32,10 +160,14 @@ const handler = createMcpHandler(
           category: z.string().optional(),
         }),
       },
-      async (input, context) => {
+      withToolErrorHandling("create_task", async (input, context) => {
         const accessToken = requireAccessToken(context.authInfo?.token);
         const supabase = getSupabaseClientForToken(accessToken);
+        const userId = await requireUserId(supabase);
         const title = input.title.trim();
+        const priority = input.priority ?? "medium";
+        const urgency = input.urgency ?? "medium";
+        const category = input.category?.trim() || "task";
         if (!title) {
           throw new Error("Title is required.");
         }
@@ -45,10 +177,11 @@ const handler = createMcpHandler(
           .insert([
             {
               title,
-              priority: input.priority,
-              urgency: input.urgency,
+              priority,
+              urgency,
               estimated_hours: input.estimated_hours ?? null,
-              category: input.category?.trim() || "task",
+              category,
+              user_id: userId,
               completed: false,
             },
           ])
@@ -65,7 +198,7 @@ const handler = createMcpHandler(
             },
           ],
         };
-      },
+      }),
     );
 
     server.registerTool(
@@ -83,10 +216,15 @@ const handler = createMcpHandler(
           recurrence_interval: z.number().int().min(1).default(1),
         }),
       },
-      async (input, context) => {
+      withToolErrorHandling("create_routine", async (input, context) => {
         const accessToken = requireAccessToken(context.authInfo?.token);
         const supabase = getSupabaseClientForToken(accessToken);
+        const userId = await requireUserId(supabase);
         const title = input.title.trim();
+        const priority = input.priority ?? "medium";
+        const urgency = input.urgency ?? "medium";
+        const category = input.category?.trim() || "task";
+        const recurrenceInterval = input.recurrence_interval ?? 1;
         if (!title) {
           throw new Error("Title is required.");
         }
@@ -96,12 +234,13 @@ const handler = createMcpHandler(
           .insert([
             {
               title,
-              priority: input.priority,
-              urgency: input.urgency,
+              priority,
+              urgency,
               estimated_hours: input.estimated_hours ?? null,
-              category: input.category?.trim() || "task",
+              category,
+              user_id: userId,
               recurrence_type: input.recurrence_type,
-              recurrence_interval: input.recurrence_interval,
+              recurrence_interval: recurrenceInterval,
             },
           ])
           .select()
@@ -117,7 +256,7 @@ const handler = createMcpHandler(
             },
           ],
         };
-      },
+      }),
     );
 
     server.registerTool(
@@ -134,7 +273,7 @@ const handler = createMcpHandler(
           order: z.enum(["asc", "desc"]).default("desc"),
         }),
       },
-      async (input, context) => {
+      withToolErrorHandling("list_tasks", async (input, context) => {
         const accessToken = requireAccessToken(context.authInfo?.token);
         const supabase = getSupabaseClientForToken(accessToken);
 
@@ -166,7 +305,7 @@ const handler = createMcpHandler(
             },
           ],
         };
-      },
+      }),
     );
 
     server.registerTool(
@@ -183,7 +322,7 @@ const handler = createMcpHandler(
           order: z.enum(["asc", "desc"]).default("desc"),
         }),
       },
-      async (input, context) => {
+      withToolErrorHandling("list_routines", async (input, context) => {
         const accessToken = requireAccessToken(context.authInfo?.token);
         const supabase = getSupabaseClientForToken(accessToken);
 
@@ -215,7 +354,7 @@ const handler = createMcpHandler(
             },
           ],
         };
-      },
+      }),
     );
 
     server.registerTool(
@@ -234,7 +373,7 @@ const handler = createMcpHandler(
           completed: z.boolean().optional(),
         }),
       },
-      async (input, context) => {
+      withToolErrorHandling("update_task", async (input, context) => {
         const accessToken = requireAccessToken(context.authInfo?.token);
         const supabase = getSupabaseClientForToken(accessToken);
 
@@ -275,7 +414,7 @@ const handler = createMcpHandler(
             },
           ],
         };
-      },
+      }),
     );
 
     server.registerTool(
@@ -295,7 +434,7 @@ const handler = createMcpHandler(
           recurrence_interval: z.number().int().min(1).optional(),
         }),
       },
-      async (input, context) => {
+      withToolErrorHandling("update_routine", async (input, context) => {
         const accessToken = requireAccessToken(context.authInfo?.token);
         const supabase = getSupabaseClientForToken(accessToken);
 
@@ -339,7 +478,7 @@ const handler = createMcpHandler(
             },
           ],
         };
-      },
+      }),
     );
   },
   {},
