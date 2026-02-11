@@ -10,7 +10,7 @@
     "lint": "eslint . --cache",
     "type-check": "tsc --noEmit",
     "format": "prettier --write . --cache",
-    "check": "bun run lint && bun run type-check && bun run build",
+    "check": "bun run lint && bun run type-check && bun run build && bun run format",
     "test": "bun test",
     "ci:test": "bun run check && bun test"
   },

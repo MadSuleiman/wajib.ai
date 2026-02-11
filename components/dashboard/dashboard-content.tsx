@@ -87,6 +87,14 @@ const splitDailyRecurringItems = <
   return { prioritized: [...daily, ...others], daily, others };
 };
 
+const formatTaskTypeLabel = (value: string) => {
+  return value
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(" ");
+};
+
 const DAILY_HIGHLIGHT_STORAGE_KEY = "wajib:daily-highlight";
 const DAILY_HIGHLIGHT_EVENT = "wajib:daily-highlight";
 
@@ -312,7 +320,7 @@ export function DashboardContent({
   }, [computedHighlight, routines]);
 
   const filterAndSortItems = useCallback(
-    (input: ListItem[]) => {
+    (input: ListItem[], kind: "tasks" | "routines") => {
       const filtered = input.filter((item) => {
         const derivedStatus = derivedStatuses.get(item.id) ?? "active";
         const matchesStatus =
@@ -327,10 +335,30 @@ export function DashboardContent({
       const sortConfig = sortConfigFromValue(sortValue);
       const sorted = sortItems(filtered, sortConfig);
       const { prioritized, daily, others } = splitDailyRecurringItems(sorted);
-      const grouped = groupItems(prioritized, groupMode).map((group) => ({
-        label: group.label,
-        items: group.items,
-      }));
+      const grouped =
+        kind === "routines" && groupMode === "month"
+          ? Array.from(
+              prioritized
+                .reduce((map, item) => {
+                  const key = item.category;
+                  const label =
+                    categoryMap.get(key)?.label ?? formatTaskTypeLabel(key);
+                  if (!map.has(key)) {
+                    map.set(key, { label, items: [] as ListItem[] });
+                  }
+                  map.get(key)!.items.push(item);
+                  return map;
+                }, new Map<string, ItemGroup>())
+                .values(),
+            ).sort((a, b) =>
+              a.label.localeCompare(b.label, undefined, {
+                sensitivity: "base",
+              }),
+            )
+          : groupItems(prioritized, groupMode).map((group) => ({
+              label: group.label,
+              items: group.items,
+            }));
       const groupedForNone =
         groupMode === "none"
           ? (() => {
@@ -340,7 +368,12 @@ export function DashboardContent({
               }
               if (others.length) {
                 groups.push({
-                  label: daily.length ? "Other tasks" : "",
+                  label:
+                    daily.length && kind === "routines"
+                      ? "Other routines"
+                      : daily.length
+                        ? "Other tasks"
+                        : "",
                   items: others,
                 });
               }
@@ -364,15 +397,22 @@ export function DashboardContent({
         tableSortState,
       };
     },
-    [categoryFilter, derivedStatuses, groupMode, sortValue, statusFilter],
+    [
+      categoryFilter,
+      categoryMap,
+      derivedStatuses,
+      groupMode,
+      sortValue,
+      statusFilter,
+    ],
   );
 
   const taskView = useMemo(
-    () => filterAndSortItems(tasks),
+    () => filterAndSortItems(tasks, "tasks"),
     [filterAndSortItems, tasks],
   );
   const routineView = useMemo(
-    () => filterAndSortItems(routines),
+    () => filterAndSortItems(routines, "routines"),
     [filterAndSortItems, routines],
   );
 
