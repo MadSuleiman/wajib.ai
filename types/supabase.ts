@@ -13,7 +13,7 @@ interface BaseItemRow {
   id: string;
   created_at: string;
   title: string;
-  priority: TaskPriority;
+  value: TaskPriority;
   urgency: TaskUrgency;
   estimated_hours: number | null;
   user_id: string;
@@ -49,6 +49,7 @@ export interface ListItem {
   title: string;
   completed: boolean;
   item_kind: ItemKind;
+  value: TaskPriority;
   priority: TaskPriority;
   urgency: TaskUrgency;
   estimated_hours: number | null;
@@ -82,17 +83,35 @@ export interface RoutineLogRow {
   completed_at: string;
 }
 
-export const taskRowToListItem = (task: TaskRow): ListItem => ({
-  ...task,
-  urgency: task.urgency ?? "medium",
-  item_kind: "task",
-  recurrence_type: "none",
-  recurrence_interval: 1,
-});
+type RowWithLegacyPriority = {
+  value?: TaskPriority | null;
+  priority?: TaskPriority | null;
+};
 
-export const routineRowToListItem = (routine: RoutineRow): ListItem => ({
-  ...routine,
-  urgency: routine.urgency ?? "medium",
-  item_kind: "routine",
-  completed: false,
-});
+const resolveItemValue = (row: RowWithLegacyPriority): TaskPriority =>
+  row.value ?? row.priority ?? "medium";
+
+export const taskRowToListItem = (task: TaskRow): ListItem => {
+  const value = resolveItemValue(task as TaskRow & RowWithLegacyPriority);
+  return {
+    ...task,
+    value,
+    priority: value,
+    urgency: task.urgency ?? "medium",
+    item_kind: "task",
+    recurrence_type: "none",
+    recurrence_interval: 1,
+  };
+};
+
+export const routineRowToListItem = (routine: RoutineRow): ListItem => {
+  const value = resolveItemValue(routine as RoutineRow & RowWithLegacyPriority);
+  return {
+    ...routine,
+    value,
+    priority: value,
+    urgency: routine.urgency ?? "medium",
+    item_kind: "routine",
+    completed: false,
+  };
+};

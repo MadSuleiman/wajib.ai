@@ -293,7 +293,7 @@ function escapeCsv(value: unknown) {
 
 const taskExportHeaders = [
   "title",
-  "priority",
+  "value",
   "urgency",
   "estimated_hours",
   "category",
@@ -303,7 +303,7 @@ const taskExportHeaders = [
 
 const routineExportHeaders = [
   "title",
-  "priority",
+  "value",
   "urgency",
   "estimated_hours",
   "category",

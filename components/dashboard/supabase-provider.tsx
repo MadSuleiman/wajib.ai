@@ -228,7 +228,7 @@ export function SupabaseProvider({
                   {
                     title: trimmedTitle,
                     completed: false,
-                    priority,
+                    value: priority,
                     urgency,
                     estimated_hours: estimatedHours,
                     category: normalizedCategory,
@@ -242,7 +242,7 @@ export function SupabaseProvider({
                 .insert([
                   {
                     title: trimmedTitle,
-                    priority,
+                    value: priority,
                     urgency,
                     estimated_hours: estimatedHours,
                     category: normalizedCategory,
@@ -377,7 +377,7 @@ export function SupabaseProvider({
 
         const { data, error } = await supabase
           .from(targetTable)
-          .update({ priority } as never)
+          .update({ value: priority } as never)
           .eq("id", itemId)
           .select()
           .single();
@@ -509,7 +509,7 @@ export function SupabaseProvider({
             .insert([
               {
                 title: existingItem.title,
-                priority: existingItem.priority,
+                value: existingItem.priority,
                 urgency: existingItem.urgency,
                 estimated_hours: existingItem.estimated_hours,
                 category: existingItem.category,
@@ -554,7 +554,7 @@ export function SupabaseProvider({
                 {
                   title: existingItem.title,
                   completed: existingItem.completed,
-                  priority: existingItem.priority,
+                  value: existingItem.priority,
                   urgency: existingItem.urgency,
                   estimated_hours: existingItem.estimated_hours,
                   category: existingItem.category,
@@ -643,7 +643,7 @@ export function SupabaseProvider({
         }
 
         if (updates.priority && updates.priority !== existingItem.priority) {
-          payload.priority = updates.priority;
+          payload.value = updates.priority;
           hasChanges = true;
         }
 

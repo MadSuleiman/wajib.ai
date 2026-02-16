@@ -91,16 +91,16 @@ Supabase
    - Insert into `routines`
    - Return created record
 4. Implement `list_tasks` tool handler:
-   - Select from `tasks` with filters (completed, category, priority)
+   - Select from `tasks` with filters (completed, category, value)
    - Return list
 5. Implement `list_routines` tool handler:
-   - Select from `routines` with filters (recurrence_type, category, priority)
+   - Select from `routines` with filters (recurrence_type, category, value)
    - Return list
 6. Implement `update_task` tool handler:
-   - Update task fields (title, priority, urgency, estimated_hours, category, completed)
+   - Update task fields (title, value, urgency, estimated_hours, category, completed)
    - Return updated record
 7. Implement `update_routine` tool handler:
-   - Update routine fields (title, priority, urgency, estimated_hours, category, recurrence_type, recurrence_interval)
+   - Update routine fields (title, value, urgency, estimated_hours, category, recurrence_type, recurrence_interval)
    - Return updated record
 8. Add error mapping (user-friendly MCP errors).
 

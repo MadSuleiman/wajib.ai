@@ -116,7 +116,7 @@ const withToolErrorHandling = <TInput, TContext, TResult>(
 
 const handler = createMcpHandler(
   (server) => {
-    const prioritySchema = z.enum(["low", "medium", "high"]);
+    const valueSchema = z.enum(["low", "medium", "high"]);
     const urgencySchema = z.enum(["low", "medium", "high"]);
     const recurrenceSchema = z.enum(["daily", "weekly", "monthly", "yearly"]);
 
@@ -154,7 +154,8 @@ const handler = createMcpHandler(
         description: "Create a new one-off task for the authenticated user.",
         inputSchema: z.object({
           title: z.string().min(1),
-          priority: prioritySchema.default("medium"),
+          value: valueSchema.optional(),
+          priority: valueSchema.optional(),
           urgency: urgencySchema.default("medium"),
           estimated_hours: z.number().min(0).nullable().optional(),
           category: z.string().optional(),
@@ -165,7 +166,7 @@ const handler = createMcpHandler(
         const supabase = getSupabaseClientForToken(accessToken);
         const userId = await requireUserId(supabase);
         const title = input.title.trim();
-        const priority = input.priority ?? "medium";
+        const value = input.value ?? input.priority ?? "medium";
         const urgency = input.urgency ?? "medium";
         const category = input.category?.trim() || "task";
         if (!title) {
@@ -177,7 +178,7 @@ const handler = createMcpHandler(
           .insert([
             {
               title,
-              priority,
+              value,
               urgency,
               estimated_hours: input.estimated_hours ?? null,
               category,
@@ -208,7 +209,8 @@ const handler = createMcpHandler(
         description: "Create a recurring routine for the authenticated user.",
         inputSchema: z.object({
           title: z.string().min(1),
-          priority: prioritySchema.default("medium"),
+          value: valueSchema.optional(),
+          priority: valueSchema.optional(),
           urgency: urgencySchema.default("medium"),
           estimated_hours: z.number().min(0).nullable().optional(),
           category: z.string().optional(),
@@ -221,7 +223,7 @@ const handler = createMcpHandler(
         const supabase = getSupabaseClientForToken(accessToken);
         const userId = await requireUserId(supabase);
         const title = input.title.trim();
-        const priority = input.priority ?? "medium";
+        const value = input.value ?? input.priority ?? "medium";
         const urgency = input.urgency ?? "medium";
         const category = input.category?.trim() || "task";
         const recurrenceInterval = input.recurrence_interval ?? 1;
@@ -234,7 +236,7 @@ const handler = createMcpHandler(
           .insert([
             {
               title,
-              priority,
+              value,
               urgency,
               estimated_hours: input.estimated_hours ?? null,
               category,
@@ -267,7 +269,8 @@ const handler = createMcpHandler(
         inputSchema: z.object({
           completed: z.boolean().optional(),
           category: z.string().optional(),
-          priority: prioritySchema.optional(),
+          value: valueSchema.optional(),
+          priority: valueSchema.optional(),
           urgency: urgencySchema.optional(),
           limit: z.number().int().min(1).max(200).default(50),
           order: z.enum(["asc", "desc"]).default("desc"),
@@ -284,8 +287,9 @@ const handler = createMcpHandler(
         if (input.category) {
           query = query.eq("category", input.category.trim());
         }
-        if (input.priority) {
-          query = query.eq("priority", input.priority);
+        const value = input.value ?? input.priority;
+        if (value) {
+          query = query.eq("value", value);
         }
         if (input.urgency) {
           query = query.eq("urgency", input.urgency);
@@ -315,7 +319,8 @@ const handler = createMcpHandler(
         description: "List routines for the authenticated user.",
         inputSchema: z.object({
           category: z.string().optional(),
-          priority: prioritySchema.optional(),
+          value: valueSchema.optional(),
+          priority: valueSchema.optional(),
           urgency: urgencySchema.optional(),
           recurrence_type: recurrenceSchema.optional(),
           limit: z.number().int().min(1).max(200).default(50),
@@ -330,8 +335,9 @@ const handler = createMcpHandler(
         if (input.category) {
           query = query.eq("category", input.category.trim());
         }
-        if (input.priority) {
-          query = query.eq("priority", input.priority);
+        const value = input.value ?? input.priority;
+        if (value) {
+          query = query.eq("value", value);
         }
         if (input.urgency) {
           query = query.eq("urgency", input.urgency);
@@ -366,7 +372,8 @@ const handler = createMcpHandler(
         inputSchema: z.object({
           id: z.string().min(1),
           title: z.string().min(1).optional(),
-          priority: prioritySchema.optional(),
+          value: valueSchema.optional(),
+          priority: valueSchema.optional(),
           urgency: urgencySchema.optional(),
           estimated_hours: z.number().min(0).nullable().optional(),
           category: z.string().optional(),
@@ -383,7 +390,8 @@ const handler = createMcpHandler(
           if (!trimmedTitle) throw new Error("Title cannot be empty.");
           updates.title = trimmedTitle;
         }
-        if (input.priority) updates.priority = input.priority;
+        const value = input.value ?? input.priority;
+        if (value) updates.value = value;
         if (input.urgency) updates.urgency = input.urgency;
         if (typeof input.estimated_hours !== "undefined") {
           updates.estimated_hours = input.estimated_hours;
@@ -426,7 +434,8 @@ const handler = createMcpHandler(
         inputSchema: z.object({
           id: z.string().min(1),
           title: z.string().min(1).optional(),
-          priority: prioritySchema.optional(),
+          value: valueSchema.optional(),
+          priority: valueSchema.optional(),
           urgency: urgencySchema.optional(),
           estimated_hours: z.number().min(0).nullable().optional(),
           category: z.string().optional(),
@@ -444,7 +453,8 @@ const handler = createMcpHandler(
           if (!trimmedTitle) throw new Error("Title cannot be empty.");
           updates.title = trimmedTitle;
         }
-        if (input.priority) updates.priority = input.priority;
+        const value = input.value ?? input.priority;
+        if (value) updates.value = value;
         if (input.urgency) updates.urgency = input.urgency;
         if (typeof input.estimated_hours !== "undefined") {
           updates.estimated_hours = input.estimated_hours;
