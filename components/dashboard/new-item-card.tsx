@@ -47,6 +47,8 @@ type ParsedCsvRow = {
 const headerAliases: Record<string, string> = {
   title: "title",
   priority: "priority",
+  value: "priority",
+  worth: "priority",
   urgency: "urgency",
   estimated_hours: "estimated_hours",
   estimated_hour: "estimated_hours",
@@ -412,7 +414,7 @@ export function NewItemCard({
         <p className="max-w-xl text-sm text-muted-foreground">
           {isRoutine
             ? "Set a cadence to maintain habits and recurring responsibilities."
-            : "Track one-off work with categories and priorities."}
+            : "Track one-off work with categories and value levels."}
         </p>
         <div className="flex items-center gap-2">
           <input
@@ -551,13 +553,13 @@ export function NewItemCard({
             </Popover>
           </div>
           <div className="space-y-2">
-            <Label>Priority</Label>
+            <Label>Value</Label>
             <Select
               value={priority}
               onValueChange={(value: TaskPriority) => setPriority(value)}
             >
               <SelectTrigger className="w-full capitalize">
-                <SelectValue placeholder="Select priority" />
+                <SelectValue placeholder="Select value" />
               </SelectTrigger>
               <SelectContent>
                 {(Object.keys(priorityLabels) as TaskPriority[]).map(

@@ -390,10 +390,10 @@ export function SupabaseProvider({
               : routineRowToListItem(data as never);
           refreshItem(updated);
         }
-        toast.success("Priority updated");
+        toast.success("Value updated");
         return true;
       } catch (error: unknown) {
-        toast.error("Failed to update priority", {
+        toast.error("Failed to update value", {
           description:
             getErrorMessage(error) || "Something went wrong. Please try again.",
         });

@@ -143,7 +143,7 @@ function RoutineEditorForm({
             </Select>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Priority</label>
+            <label className="text-sm font-medium">Value</label>
             <Select
               value={formState.priority}
               onValueChange={(value: TaskPriority) =>
@@ -152,7 +152,7 @@ function RoutineEditorForm({
               disabled={!canEdit}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select priority" />
+                <SelectValue placeholder="Select value" />
               </SelectTrigger>
               <SelectContent>
                 {(Object.keys(priorityLabels) as TaskPriority[]).map(

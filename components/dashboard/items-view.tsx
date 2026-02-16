@@ -338,7 +338,7 @@ function DesktopTable({
     columnsLocal.push(
       {
         id: "priority",
-        header: "Priority",
+        header: "Value",
         sortable: true,
         cell: (item) => (
           <Badge

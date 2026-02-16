@@ -83,9 +83,9 @@ describe("list utils", () => {
 
     const grouped = groupItems(items, "priority");
     expect(grouped.map((group) => group.label)).toEqual([
-      "High priority",
-      "Medium priority",
-      "Low priority",
+      "High value",
+      "Medium value",
+      "Low value",
     ]);
     expect(grouped[0].items.map((item) => item.id)).toEqual(["b", "d"]);
   });

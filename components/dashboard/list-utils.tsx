@@ -178,7 +178,7 @@ export const groupItems = <T extends BaseItem & { priority: TaskPriority }>(
     return (Object.keys(priorityOrder) as TaskPriority[])
       .sort((a, b) => priorityOrder[a] - priorityOrder[b])
       .map((priority) => ({
-        label: `${priorityLabels[priority]} priority`,
+        label: `${priorityLabels[priority]} value`,
         items: items.filter((item) => item.priority === priority),
       }))
       .filter((group) => group.items.length > 0);

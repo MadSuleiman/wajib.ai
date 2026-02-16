@@ -14,7 +14,7 @@ export const groupingOptions: ReadonlyArray<{
   { label: "Month", value: "month" },
   { label: "Week", value: "week" },
   { label: "Day", value: "date" },
-  { label: "Priority", value: "priority" },
+  { label: "Value", value: "priority" },
   { label: "No grouping", value: "none" },
 ];
 
@@ -22,8 +22,8 @@ export const sortOptions: ReadonlyArray<{
   label: string;
   value: SortOptionValue;
 }> = [
-  { label: "Priority (high → low)", value: "priority:desc" },
-  { label: "Priority (low → high)", value: "priority:asc" },
+  { label: "Value (high → low)", value: "priority:desc" },
+  { label: "Value (low → high)", value: "priority:asc" },
   { label: "Urgency (high → low)", value: "urgency:desc" },
   { label: "Urgency (low → high)", value: "urgency:asc" },
   { label: "Newest first", value: "date:desc" },
