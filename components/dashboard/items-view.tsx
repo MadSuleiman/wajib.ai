@@ -78,7 +78,7 @@ type ItemsViewProps = {
   onTableSortChange: (nextSort: DataTableSortState) => void;
 };
 
-export function ItemsView({
+function ItemsViewComponent({
   isMobile,
   variant,
   currentTime,
@@ -207,6 +207,9 @@ export function ItemsView({
   );
 }
 
+export const ItemsView = React.memo(ItemsViewComponent);
+ItemsView.displayName = "ItemsView";
+
 type DesktopTableProps = {
   variant: "task" | "routine";
   items: ListItem[];
@@ -226,7 +229,7 @@ type DesktopTableProps = {
   ) => { label: "Time left" | "Resets in"; value: string } | null;
 };
 
-function DesktopTable({
+const DesktopTable = React.memo(function DesktopTable({
   variant,
   items,
   groups,
@@ -242,6 +245,14 @@ function DesktopTable({
   onEditTask,
   getRoutineTiming,
 }: DesktopTableProps) {
+  const addedDescriptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const item of items) {
+      map.set(item.id, formatAdded(item.created_at));
+    }
+    return map;
+  }, [formatAdded, items]);
+
   const columns = useMemo<DataTableColumn<ListItem>[]>(() => {
     const columnsLocal: DataTableColumn<ListItem>[] = [
       {
@@ -275,7 +286,8 @@ function DesktopTable({
                   {item.title}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {formatAdded(item.created_at)}
+                  {addedDescriptions.get(item.id) ??
+                    formatAdded(item.created_at)}
                 </span>
               </div>
             </div>
@@ -382,7 +394,7 @@ function DesktopTable({
         sortable: true,
         cell: (item) => (
           <span className="text-sm text-muted-foreground">
-            {formatAdded(item.created_at)}
+            {addedDescriptions.get(item.id) ?? formatAdded(item.created_at)}
           </span>
         ),
       },
@@ -421,6 +433,7 @@ function DesktopTable({
     categoryMap,
     deleteItem,
     derivedStatuses,
+    addedDescriptions,
     formatAdded,
     getRoutineTiming,
     onEditTask,
@@ -431,6 +444,7 @@ function DesktopTable({
       columns={columns}
       data={items}
       groups={groups}
+      getRowId={(item) => itemAnchorId(item.id)}
       emptyState={emptyState}
       sortState={sortState}
       onSortChange={onSortChange}
@@ -438,13 +452,9 @@ function DesktopTable({
         const isCompleted =
           (derivedStatuses.get(item.id) ?? "active") === "completed";
         const itemLabel = item.item_kind === "routine" ? "routine" : "task";
-        const rowWithId = React.cloneElement(
-          row as React.ReactElement<{ id?: string }>,
-          { id: itemAnchorId(item.id) },
-        );
         return (
           <ContextMenu key={rowKey}>
-            <ContextMenuTrigger asChild>{rowWithId}</ContextMenuTrigger>
+            <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
             <ContextMenuContent className="w-48">
               <ContextMenuItem
                 onSelect={() => {
@@ -482,7 +492,8 @@ function DesktopTable({
       }}
     />
   );
-}
+});
+DesktopTable.displayName = "DesktopTable";
 
 type MobileListProps = {
   groups: ItemGroup[];
@@ -498,7 +509,7 @@ type MobileListProps = {
   ) => { label: "Time left" | "Resets in"; value: string } | null;
 };
 
-function MobileList({
+const MobileList = React.memo(function MobileList({
   groups,
   categoryMap,
   derivedStatuses,
@@ -645,4 +656,5 @@ function MobileList({
         ))}
     </div>
   );
-}
+});
+MobileList.displayName = "MobileList";

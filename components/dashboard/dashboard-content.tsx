@@ -453,11 +453,14 @@ export function DashboardContent({
       ? "Nothing here yet. Add your first item to get started."
       : "No items match the current filters.";
 
-  const emptyStateContent = (
-    <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-      <Filter className="h-5 w-5 text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">{emptyStateMessage}</p>
-    </div>
+  const emptyStateContent = useMemo(
+    () => (
+      <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+        <Filter className="h-5 w-5 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">{emptyStateMessage}</p>
+      </div>
+    ),
+    [emptyStateMessage],
   );
 
   const categoryChartData = useMemo(() => {
@@ -675,7 +678,7 @@ export function DashboardContent({
         <ItemsView
           isMobile={isMobile}
           variant={variant}
-          currentTime={timeMarker}
+          currentTime={variant === "routine" ? timeMarker : 0}
           summaryText={summaryText}
           prioritizedItems={view.prioritized}
           displayGroups={view.groupedItems}
