@@ -10,7 +10,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { format } from "date-fns";
 import { toast } from "sonner";
 
 import { createClientSupabaseClient } from "@/lib/supabase-client";
@@ -24,13 +23,16 @@ import type {
   TaskUrgency,
 } from "@/types";
 import { routineRowToListItem, taskRowToListItem } from "@/types/supabase";
+import {
+  getLocalDayKey,
+  getRoutinePeriodInfo,
+  isDayKeyInRange,
+} from "./routine-period";
 
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
   return String(error);
 };
-
-const getLocalDayKey = (date: Date) => format(date, "yyyy-MM-dd");
 
 interface AddItemInput {
   title: string;
@@ -90,10 +92,13 @@ export function SupabaseProvider({
   children,
 }: SupabaseProviderProps) {
   const supabase = useMemo(() => createClientSupabaseClient(), []);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(
+    initialItems[0]?.user_id ?? null,
+  );
   const [items, setItems] = useState<ListItem[]>(() =>
     sortItemsByPriority(initialItems),
   );
+  const itemsRef = useRef(items);
   const [categories] = useState<Category[]>(initialCategories);
   const [isLoading, setIsLoading] = useState(false);
   const [routineCompletionDay, setRoutineCompletionDay] = useState(() =>
@@ -112,6 +117,10 @@ export function SupabaseProvider({
   useEffect(() => {
     completedRoutineIdsRef.current = completedRoutineIds;
   }, [completedRoutineIds]);
+
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -137,18 +146,65 @@ export function SupabaseProvider({
   }, []);
 
   const refreshRoutineCompletionsForDay = useCallback(
-    async (input: { userId: string; dayKey: string }) => {
+    async (input: { userId: string; now?: Date }) => {
+      const now = input.now ?? new Date();
+      const routineItems = itemsRef.current.filter(
+        (item): item is ListItem => item.item_kind === "routine",
+      );
+
+      if (routineItems.length === 0) {
+        applyRoutineCompletionSet(new Set());
+        return;
+      }
+
+      const periodByRoutineId = new Map<
+        string,
+        { startDayKey: string; endDayKey: string }
+      >();
+      let earliestStartDayKey: string | null = null;
+
+      for (const routine of routineItems) {
+        const period = getRoutinePeriodInfo(routine, now);
+        if (!period) continue;
+        periodByRoutineId.set(routine.id, {
+          startDayKey: period.startDayKey,
+          endDayKey: period.endDayKey,
+        });
+        if (!earliestStartDayKey || period.startDayKey < earliestStartDayKey) {
+          earliestStartDayKey = period.startDayKey;
+        }
+      }
+
+      if (!earliestStartDayKey || periodByRoutineId.size === 0) {
+        applyRoutineCompletionSet(new Set());
+        return;
+      }
+
+      const routineIds = Array.from(periodByRoutineId.keys());
+      const todayDayKey = getLocalDayKey(now);
+
       const { data, error } = await supabase
         .from("routine_logs")
         .select("routine_id, completed_day")
         .eq("user_id", input.userId)
-        .eq("completed_day", input.dayKey);
+        .in("routine_id", routineIds)
+        .gte("completed_day", earliestStartDayKey)
+        .lte("completed_day", todayDayKey);
 
       if (error) throw error;
 
       const nextSet = new Set<string>();
       (data ?? []).forEach((row) => {
-        if (row?.routine_id) nextSet.add(String(row.routine_id));
+        if (!row?.routine_id || !row?.completed_day) return;
+        const routineId = String(row.routine_id);
+        const completedDayKey = String(row.completed_day);
+        const period = periodByRoutineId.get(routineId);
+        if (!period) return;
+        if (
+          isDayKeyInRange(completedDayKey, period.startDayKey, period.endDayKey)
+        ) {
+          nextSet.add(routineId);
+        }
       });
       applyRoutineCompletionSet(nextSet);
     },
@@ -285,24 +341,32 @@ export function SupabaseProvider({
     async (item) => {
       if (item.item_kind === "routine") {
         try {
-          const dayKey = getLocalDayKey(new Date());
+          const now = new Date();
+          const dayKey = getLocalDayKey(now);
+          const period = getRoutinePeriodInfo(item, now);
           if (dayKey !== routineCompletionDayRef.current) {
             setRoutineCompletionDay(dayKey);
           }
 
           if (item.completed) {
-            const { error } = await supabase
+            const deleteQuery = supabase
               .from("routine_logs")
               .delete()
               .eq("routine_id", item.id)
-              .eq("user_id", item.user_id)
-              .eq("completed_day", dayKey);
+              .eq("user_id", item.user_id);
+
+            const { error } = period
+              ? await deleteQuery
+                  .gte("completed_day", period.startDayKey)
+                  .lte("completed_day", period.endDayKey)
+              : await deleteQuery.eq("completed_day", dayKey);
 
             if (error) throw error;
 
-            const nextSet = new Set(completedRoutineIdsRef.current);
-            nextSet.delete(item.id);
-            applyRoutineCompletionSet(nextSet);
+            await refreshRoutineCompletionsForDay({
+              userId: item.user_id,
+              now,
+            });
             toast.success("Routine marked as active");
             return true;
           }
@@ -321,12 +385,12 @@ export function SupabaseProvider({
 
           if (error) throw error;
 
-          const nextSet = new Set(completedRoutineIdsRef.current);
-          nextSet.add(item.id);
-          applyRoutineCompletionSet(nextSet);
+          await refreshRoutineCompletionsForDay({ userId: item.user_id, now });
 
           toast.success("Routine completed", {
-            description: "Tracked for today.",
+            description: period
+              ? `Tracked for this ${period.periodLabel}.`
+              : "Tracked for today.",
           });
           return true;
         } catch (error: unknown) {
@@ -364,7 +428,7 @@ export function SupabaseProvider({
         return false;
       }
     },
-    [applyRoutineCompletionSet, refreshItem, supabase],
+    [refreshItem, refreshRoutineCompletionsForDay, supabase],
   );
 
   const updateItemPriority: ListStore["updateItemPriority"] = useCallback(
@@ -826,10 +890,22 @@ export function SupabaseProvider({
             if (isCancelled) return;
             if (payload.eventType === "DELETE" && payload.old?.id) {
               removeItem(String(payload.old.id));
+              void refreshRoutineCompletionsForDay({
+                userId: user.id,
+                now: new Date(),
+              }).catch((error: unknown) => {
+                console.error("Failed to refresh routine completions", error);
+              });
               return;
             }
             if (payload.new) {
               refreshItem(routineRowToListItem(payload.new as never));
+              void refreshRoutineCompletionsForDay({
+                userId: user.id,
+                now: new Date(),
+              }).catch((error: unknown) => {
+                console.error("Failed to refresh routine completions", error);
+              });
             }
           },
         )
@@ -845,49 +921,14 @@ export function SupabaseProvider({
             table: "routine_logs",
             filter: `user_id=eq.${user.id}`,
           },
-          (payload) => {
+          () => {
             if (isCancelled) return;
-            const record = (
-              payload.eventType === "DELETE" ? payload.old : payload.new
-            ) as { routine_id?: string; completed_day?: string } | undefined;
-            const routineId = record?.routine_id
-              ? String(record.routine_id)
-              : null;
-            const completedDay = record?.completed_day
-              ? String(record.completed_day)
-              : null;
-
-            if (!routineId || !completedDay) return;
-            if (completedDay !== routineCompletionDayRef.current) return;
-
-            if (payload.eventType === "DELETE") {
-              setCompletedRoutineIds((current) => {
-                const next = new Set(current);
-                next.delete(routineId);
-                return next;
-              });
-              setItems((current) =>
-                current.map((item) =>
-                  item.id === routineId && item.item_kind === "routine"
-                    ? { ...item, completed: false }
-                    : item,
-                ),
-              );
-              return;
-            }
-
-            setCompletedRoutineIds((current) => {
-              const next = new Set(current);
-              next.add(routineId);
-              return next;
+            void refreshRoutineCompletionsForDay({
+              userId: user.id,
+              now: new Date(),
+            }).catch((error: unknown) => {
+              console.error("Failed to refresh routine completions", error);
             });
-            setItems((current) =>
-              current.map((item) =>
-                item.id === routineId && item.item_kind === "routine"
-                  ? { ...item, completed: true }
-                  : item,
-              ),
-            );
           },
         )
         .subscribe();
@@ -915,13 +956,13 @@ export function SupabaseProvider({
       );
       stopRealtime();
     };
-  }, [refreshItem, removeItem, supabase]);
+  }, [refreshItem, refreshRoutineCompletionsForDay, removeItem, supabase]);
 
   useEffect(() => {
     if (!userId) return;
     void refreshRoutineCompletionsForDay({
       userId,
-      dayKey: routineCompletionDay,
+      now: new Date(),
     }).catch((error: unknown) => {
       console.error("Failed to refresh routine completions", error);
     });
@@ -939,7 +980,7 @@ export function SupabaseProvider({
       }
       void refreshRoutineCompletionsForDay({
         userId,
-        dayKey: routineCompletionDayRef.current,
+        now: new Date(),
       }).catch((error: unknown) => {
         console.error("Failed to refresh routine completions", error);
       });

@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState, type ReactNode } from "react";
-import { endOfDay, formatDistanceStrict, formatDistanceToNow } from "date-fns";
+import { formatDistanceStrict, formatDistanceToNow } from "date-fns";
 import {
   CalendarPlus,
   CheckCircle2,
@@ -40,6 +40,7 @@ import {
 import { TaskEditor } from "./task-editor";
 import { RoutineEditor } from "./routine-editor";
 import { itemAnchorId } from "./item-anchor";
+import { getRoutinePeriodInfo } from "./routine-period";
 
 const formatAddedDescription = (createdAt: string, timeZone: string) => {
   const absolute = formatLocalDateTime(createdAt, timeZone);
@@ -127,15 +128,23 @@ function ItemsViewComponent({
   const getRoutineTiming = useCallback(
     (
       item: ListItem,
-    ): { label: "Time left" | "Resets in"; value: string } | null => {
-      if (item.recurrence_type === "none") return null;
-
-      const status = derivedStatuses.get(item.id) ?? "active";
+    ): {
+      label: "Due in" | "Resets in";
+      value: string;
+      statusText: string;
+    } | null => {
       const nowDate = new Date(currentTime);
-      const periodEnd = endOfDay(nowDate);
+      const period = getRoutinePeriodInfo(item, nowDate);
+      if (!period) return null;
+      const status = derivedStatuses.get(item.id) ?? "active";
+
       return {
-        label: status === "active" ? "Time left" : "Resets in",
-        value: formatDistanceStrict(periodEnd, nowDate),
+        label: status === "active" ? "Due in" : "Resets in",
+        value: formatDistanceStrict(period.end, nowDate),
+        statusText:
+          status === "active"
+            ? `Due this ${period.periodLabel}`
+            : `Completed this ${period.periodLabel}`,
       };
     },
     [currentTime, derivedStatuses],
@@ -226,7 +235,11 @@ type DesktopTableProps = {
   onEditTask: (item: ListItem) => void;
   getRoutineTiming: (
     item: ListItem,
-  ) => { label: "Time left" | "Resets in"; value: string } | null;
+  ) => {
+    label: "Due in" | "Resets in";
+    value: string;
+    statusText: string;
+  } | null;
 };
 
 const DesktopTable = React.memo(function DesktopTable({
@@ -321,7 +334,6 @@ const DesktopTable = React.memo(function DesktopTable({
         header: "Recurrence",
         cell: (item) => {
           const timing = getRoutineTiming(item);
-          const status = derivedStatuses.get(item.id) ?? "active";
           return (
             <div className="flex flex-col text-sm">
               <span className="font-medium">
@@ -332,9 +344,7 @@ const DesktopTable = React.memo(function DesktopTable({
               <span className="text-xs text-muted-foreground">
                 {item.recurrence_type === "none"
                   ? "Doesn't repeat"
-                  : status === "completed"
-                    ? "Completed today"
-                    : "Due today"}
+                  : (timing?.statusText ?? "Scheduled")}
               </span>
               {timing ? (
                 <span className="text-xs text-muted-foreground">
@@ -506,7 +516,11 @@ type MobileListProps = {
   onEditTask: (item: ListItem) => void;
   getRoutineTiming: (
     item: ListItem,
-  ) => { label: "Time left" | "Resets in"; value: string } | null;
+  ) => {
+    label: "Due in" | "Resets in";
+    value: string;
+    statusText: string;
+  } | null;
 };
 
 const MobileList = React.memo(function MobileList({
