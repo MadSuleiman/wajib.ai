@@ -697,7 +697,7 @@ export function DashboardContent({
   const focusedSection = focusKind ? renderListSection(focusKind) : null;
 
   return (
-    <div className={`space-y-6${isMobile && !isPopout ? " pb-28" : ""}`}>
+    <div className={`space-y-6${isMobile && !isPopout ? " pb-32" : ""}`}>
       {createRoutineLauncher}
       {createTaskLauncher}
       <ScheduleBlockDialog
@@ -794,9 +794,9 @@ export function DashboardContent({
 
       {isMobile && !isPopout ? (
         <div
-          className="pointer-events-none fixed inset-x-0 z-20 flex justify-between"
+          className="pointer-events-none fixed inset-x-0 z-30 flex justify-between"
           style={{
-            bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)",
+            bottom: "calc(env(safe-area-inset-bottom, 0px) + 2.5rem)",
             paddingLeft:
               "max(1rem, calc(env(safe-area-inset-left, 0px) + 0.75rem))",
             paddingRight:
@@ -805,9 +805,9 @@ export function DashboardContent({
         >
           <Button
             type="button"
-            variant="outline"
+            variant="default"
             size="sm"
-            className="pointer-events-auto h-11 rounded-md px-4"
+            className="pointer-events-auto h-12 rounded-full border border-foreground/20 bg-foreground px-4 text-background shadow-lg shadow-black/25 hover:bg-foreground/90"
             onClick={() => setIsCreateRoutineOpen(true)}
           >
             <Plus className="h-4 w-4" />
@@ -815,9 +815,9 @@ export function DashboardContent({
           </Button>
           <Button
             type="button"
-            variant="outline"
+            variant="default"
             size="sm"
-            className="pointer-events-auto h-11 rounded-md px-4"
+            className="pointer-events-auto h-12 rounded-full border border-foreground/20 bg-foreground px-4 text-background shadow-lg shadow-black/25 hover:bg-foreground/90"
             onClick={() => setIsCreateTaskOpen(true)}
           >
             <Plus className="h-4 w-4" />
