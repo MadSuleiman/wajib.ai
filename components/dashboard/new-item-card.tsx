@@ -410,77 +410,11 @@ export function NewItemCard({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="max-w-xl text-sm text-muted-foreground">
-          {isRoutine
-            ? "Set a cadence to maintain habits and recurring responsibilities."
-            : "Track one-off work with categories and value levels."}
-        </p>
-        <div className="flex items-center gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,text/csv"
-            className="hidden"
-            onChange={handleImportFileChange}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isSubmitting || isBulkImporting}
-          >
-            Import CSV
-          </Button>
-        </div>
-      </div>
-      {importFileName ? (
-        <div className="space-y-2 rounded-md border border-dashed p-3 text-sm">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="font-medium">{importFileName}</p>
-              <p className="text-xs text-muted-foreground">
-                {importRows.length
-                  ? `Ready to import ${importRows.length} rows.`
-                  : "No rows detected yet."}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleBulkImport}
-                disabled={isSubmitting || isBulkImporting || !importRows.length}
-              >
-                {isBulkImporting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Importing...
-                  </>
-                ) : (
-                  "Run import"
-                )}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={resetImportState}
-              >
-                Clear
-              </Button>
-            </div>
-          </div>
-          {importError ? (
-            <p className="text-xs text-destructive">{importError}</p>
-          ) : null}
-          {importPreview ? (
-            <pre className="max-h-40 overflow-auto rounded-md bg-muted px-3 py-2 text-xs">
-              {importPreview}
-            </pre>
-          ) : null}
-        </div>
-      ) : null}
+      <p className="max-w-xl text-sm text-muted-foreground">
+        {isRoutine
+          ? "Set a cadence to maintain habits and recurring responsibilities."
+          : "Track one-off work with categories and value levels."}
+      </p>
       <form onSubmit={handleSubmit} className="space-y-3 lg:space-y-2">
         <div className="space-y-2">
           <Label htmlFor="item-title">Title</Label>
@@ -672,6 +606,74 @@ export function NewItemCard({
           </div>
         </div>
       </form>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={handleImportFileChange}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isSubmitting || isBulkImporting}
+          >
+            Import CSV
+          </Button>
+        </div>
+        {importFileName ? (
+          <div className="space-y-2 rounded-md border border-dashed p-3 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="font-medium">{importFileName}</p>
+                <p className="text-xs text-muted-foreground">
+                  {importRows.length
+                    ? `Ready to import ${importRows.length} rows.`
+                    : "No rows detected yet."}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleBulkImport}
+                  disabled={
+                    isSubmitting || isBulkImporting || !importRows.length
+                  }
+                >
+                  {isBulkImporting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Importing...
+                    </>
+                  ) : (
+                    "Run import"
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={resetImportState}
+                >
+                  Clear
+                </Button>
+              </div>
+            </div>
+            {importError ? (
+              <p className="text-xs text-destructive">{importError}</p>
+            ) : null}
+            {importPreview ? (
+              <pre className="max-h-40 overflow-auto rounded-md bg-muted px-3 py-2 text-xs">
+                {importPreview}
+              </pre>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
