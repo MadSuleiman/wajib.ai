@@ -11,7 +11,9 @@ const isStandaloneDisplayMode = () => {
   if (typeof window === "undefined") return false;
   return (
     window.matchMedia("(display-mode: standalone)").matches ||
-    Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone)
+    Boolean(
+      (window.navigator as Navigator & { standalone?: boolean }).standalone,
+    )
   );
 };
 
@@ -31,9 +33,8 @@ const getPlatformState = () => {
 };
 
 export function useInstallPrompt() {
-  const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(
-    null,
-  );
+  const [promptEvent, setPromptEvent] =
+    useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(isStandaloneDisplayMode);
   const { isIos, isAndroid } = useMemo(() => getPlatformState(), []);
 

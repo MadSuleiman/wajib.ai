@@ -28,7 +28,8 @@ export default defineConfig({
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {
-        command: "bun --bun next build && bun --bun next start --hostname 127.0.0.1 --port 3000",
+        command:
+          "bun --bun next build && bun --bun next start --hostname 127.0.0.1 --port 3000",
         url: baseURL,
         reuseExistingServer: !process.env.CI,
         timeout: 180_000,

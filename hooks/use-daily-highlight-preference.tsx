@@ -1,47 +1,98 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { toast } from "sonner";
 
-const STORAGE_KEY = "wajib:daily-highlight-enabled";
-const STORAGE_EVENT = "wajib:daily-highlight-enabled";
+import { createClientSupabaseClient } from "@/lib/supabase-client";
 
-const subscribe = (callback: () => void) => {
-  if (typeof window === "undefined") return () => undefined;
-
-  const handler = (event: StorageEvent | Event) => {
-    if (event instanceof StorageEvent) {
-      if (event.key !== STORAGE_KEY) return;
-    }
-    callback();
-  };
-
-  window.addEventListener("storage", handler);
-  window.addEventListener(STORAGE_EVENT, handler);
-  return () => {
-    window.removeEventListener("storage", handler);
-    window.removeEventListener(STORAGE_EVENT, handler);
-  };
+type DailyHighlightPreferenceContextValue = {
+  isEnabled: boolean;
+  isSaving: boolean;
+  setIsEnabled: (nextValue: boolean) => void;
 };
 
-const getSnapshot = () => {
-  if (typeof window === "undefined") return true;
-  const stored = window.localStorage.getItem(STORAGE_KEY);
-  return stored !== "false";
+const DailyHighlightPreferenceContext =
+  createContext<DailyHighlightPreferenceContextValue | null>(null);
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  return String(error);
 };
 
-const getServerSnapshot = () => true;
+export function DailyHighlightPreferenceProvider({
+  userId,
+  initialEnabled,
+  children,
+}: {
+  userId: string;
+  initialEnabled: boolean;
+  children: ReactNode;
+}) {
+  const supabase = useMemo(() => createClientSupabaseClient(), []);
+  const [isEnabled, setIsEnabledState] = useState(initialEnabled);
+  const [isSaving, setIsSaving] = useState(false);
 
-export function useDailyHighlightPreference() {
-  const isEnabled = useSyncExternalStore(
-    subscribe,
-    getSnapshot,
-    getServerSnapshot,
+  const setIsEnabled = useCallback(
+    (nextValue: boolean) => {
+      if (isSaving || nextValue === isEnabled) return;
+
+      const previousValue = isEnabled;
+      setIsEnabledState(nextValue);
+      setIsSaving(true);
+
+      void (async () => {
+        try {
+          const { error } = await supabase.from("user_preferences").upsert(
+            {
+              user_id: userId,
+              daily_highlight_enabled: nextValue,
+            } as never,
+            { onConflict: "user_id" },
+          );
+
+          if (error) {
+            setIsEnabledState(previousValue);
+            toast.error("Couldn't save preference", {
+              description:
+                getErrorMessage(error) ||
+                "Reconnect and try updating this setting again.",
+            });
+          }
+        } finally {
+          setIsSaving(false);
+        }
+      })();
+    },
+    [isEnabled, isSaving, supabase, userId],
   );
 
-  const setIsEnabled = useCallback((nextValue: boolean) => {
-    window.localStorage.setItem(STORAGE_KEY, nextValue ? "true" : "false");
-    window.dispatchEvent(new Event(STORAGE_EVENT));
-  }, []);
+  const value = useMemo(
+    () => ({ isEnabled, isSaving, setIsEnabled }),
+    [isEnabled, isSaving, setIsEnabled],
+  );
 
-  return { isEnabled, setIsEnabled };
+  return (
+    <DailyHighlightPreferenceContext.Provider value={value}>
+      {children}
+    </DailyHighlightPreferenceContext.Provider>
+  );
+}
+
+export function useDailyHighlightPreference() {
+  const context = useContext(DailyHighlightPreferenceContext);
+
+  if (!context) {
+    throw new Error(
+      "useDailyHighlightPreference must be used within DailyHighlightPreferenceProvider",
+    );
+  }
+
+  return context;
 }

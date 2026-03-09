@@ -9,6 +9,29 @@ export function SyncStatusBanner() {
   const { sync } = useSupabase();
 
   if (
+    sync.isCheckingConnection &&
+    sync.pendingChangesCount === 0 &&
+    !sync.isSyncing &&
+    !sync.lastSyncError
+  ) {
+    return (
+      <div className="mb-4 overflow-hidden rounded-2xl border border-border/60 bg-background/80 px-4 py-3 backdrop-blur">
+        <div className="flex items-center gap-3">
+          <div
+            className="h-4 w-4 rounded-full bg-foreground/10 animate-pulse"
+            aria-hidden="true"
+          />
+          <div className="flex-1 overflow-hidden">
+            <div className="relative h-3 w-44 overflow-hidden rounded-full bg-muted/80">
+              <div className="absolute inset-y-0 left-0 w-1/2 animate-[pulse_1.4s_ease-in-out_infinite] rounded-full bg-foreground/20" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (
     sync.isOnline &&
     !sync.isSlowConnection &&
     sync.pendingChangesCount === 0 &&
@@ -21,7 +44,10 @@ export function SyncStatusBanner() {
   const icon = !sync.isOnline ? (
     <WifiOff className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
   ) : sync.isSyncing ? (
-    <RefreshCw className="mt-0.5 h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
+    <RefreshCw
+      className="mt-0.5 h-4 w-4 shrink-0 animate-spin"
+      aria-hidden="true"
+    />
   ) : (
     <SignalHigh className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
   );

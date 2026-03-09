@@ -52,8 +52,11 @@ export function SettingsPanel() {
   const supabase = createClientSupabaseClient();
   const { theme, setTheme } = useTheme();
   const { items } = useSupabase();
-  const { isEnabled: isDailyHighlightEnabled, setIsEnabled } =
-    useDailyHighlightPreference();
+  const {
+    isEnabled: isDailyHighlightEnabled,
+    isSaving: isSavingDailyHighlightPreference,
+    setIsEnabled,
+  } = useDailyHighlightPreference();
   const { isInstalled, canPromptInstall, promptToInstall, isIos } =
     useInstallPrompt();
 
@@ -153,6 +156,7 @@ export function SettingsPanel() {
               <Switch
                 id="daily-highlight-toggle"
                 checked={isDailyHighlightEnabled}
+                disabled={isSavingDailyHighlightPreference}
                 onCheckedChange={setIsEnabled}
               />
             </div>
@@ -163,20 +167,21 @@ export function SettingsPanel() {
           <CardHeader>
             <CardTitle>Install app</CardTitle>
             <CardDescription>
-              Save Wajib to your home screen for a cleaner full-screen experience
+              Save Wajib to your home screen for a cleaner full-screen
+              experience
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {isInstalled ? (
               <p className="text-sm text-muted-foreground">
-                Wajib is already installed and running in standalone mode on this
-                device.
+                Wajib is already installed and running in standalone mode on
+                this device.
               </p>
             ) : canPromptInstall ? (
               <>
                 <p className="text-sm text-muted-foreground">
-                  Install the app to get the standalone layout, cached shell, and
-                  faster relaunch behavior.
+                  Install the app to get the standalone layout, cached shell,
+                  and faster relaunch behavior.
                 </p>
                 <Button
                   type="button"
@@ -204,8 +209,8 @@ export function SettingsPanel() {
             ) : (
               <p className="text-sm text-muted-foreground">
                 Your browser has not exposed an install prompt yet. Revisit the
-                dashboard after a little use and the install option should appear
-                if the browser supports it.
+                dashboard after a little use and the install option should
+                appear if the browser supports it.
               </p>
             )}
           </CardContent>

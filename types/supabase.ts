@@ -7,7 +7,8 @@ export type SupabaseTableName =
   | "tasks"
   | "routines"
   | "categories"
-  | "routine_logs";
+  | "routine_logs"
+  | "user_preferences";
 
 interface BaseItemRow {
   id: string;
@@ -84,6 +85,21 @@ export interface RoutineLogRow {
   completed_day: string;
   completed_at: string;
 }
+
+export interface UserPreferencesRow {
+  user_id: string;
+  daily_highlight_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type UserPreferencesInsert = Partial<
+  Omit<UserPreferencesRow, "created_at" | "updated_at">
+> & {
+  user_id: string;
+};
+
+export type UserPreferencesUpdate = Partial<UserPreferencesRow>;
 
 type RowWithLegacyPriority = {
   value?: TaskPriority | null;

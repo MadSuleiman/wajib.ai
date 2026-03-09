@@ -13,11 +13,13 @@ const getConnection = (): NetworkConnection | null => {
   if (typeof navigator === "undefined") return null;
 
   return (
-    (navigator as Navigator & {
-      connection?: NetworkConnection;
-      mozConnection?: NetworkConnection;
-      webkitConnection?: NetworkConnection;
-    }).connection ??
+    (
+      navigator as Navigator & {
+        connection?: NetworkConnection;
+        mozConnection?: NetworkConnection;
+        webkitConnection?: NetworkConnection;
+      }
+    ).connection ??
     (navigator as Navigator & { mozConnection?: NetworkConnection })
       .mozConnection ??
     (navigator as Navigator & { webkitConnection?: NetworkConnection })
@@ -47,10 +49,19 @@ const getSnapshot = () => {
 };
 
 export function useNetworkStatus() {
-  const [status, setStatus] = useState(getSnapshot);
+  const [status, setStatus] = useState(() => ({
+    ...getSnapshot(),
+    isCheckingConnection: true,
+  }));
 
   useEffect(() => {
-    const handleUpdate = () => setStatus(getSnapshot());
+    const handleUpdate = () =>
+      setStatus({
+        ...getSnapshot(),
+        isCheckingConnection: false,
+      });
+
+    handleUpdate();
 
     window.addEventListener("online", handleUpdate);
     window.addEventListener("offline", handleUpdate);

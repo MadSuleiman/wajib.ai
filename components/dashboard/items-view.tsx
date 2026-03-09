@@ -739,7 +739,9 @@ function MobileListItem({
           <button
             type="button"
             onClick={handleCompletionButtonClick}
-            disabled={isCompleting || (item.item_kind === "routine" && item.local_only)}
+            disabled={
+              isCompleting || (item.item_kind === "routine" && item.local_only)
+            }
             className="flex h-8 w-8 items-center justify-center rounded-full border text-muted-foreground transition hover:border-primary hover:text-primary disabled:cursor-default disabled:opacity-60"
             aria-label={isCompleted ? "Mark as active" : "Mark as complete"}
             aria-pressed={isCompleted}

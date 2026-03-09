@@ -106,8 +106,7 @@ const buildOptimisticItem = (
     id: mutation.tempId,
     created_at: mutation.queuedAt,
     title: mutation.data.title,
-    completed:
-      mutation.itemKind === "task" ? mutation.data.completed : false,
+    completed: mutation.itemKind === "task" ? mutation.data.completed : false,
     item_kind: mutation.itemKind,
     value: mutation.data.value,
     priority: mutation.data.value,
@@ -116,13 +115,9 @@ const buildOptimisticItem = (
     user_id: mutation.userId,
     category: mutation.data.category,
     recurrence_type:
-      mutation.itemKind === "routine"
-        ? mutation.data.recurrence_type
-        : "none",
+      mutation.itemKind === "routine" ? mutation.data.recurrence_type : "none",
     recurrence_interval:
-      mutation.itemKind === "routine"
-        ? mutation.data.recurrence_interval
-        : 1,
+      mutation.itemKind === "routine" ? mutation.data.recurrence_interval : 1,
     local_only: true,
     sync_status: "pending",
   });
@@ -172,7 +167,9 @@ const cloneMutation = (mutation: OfflineMutation): OfflineMutation => {
 export const serializeOfflineMutations = (mutations: OfflineMutation[]) =>
   JSON.stringify(mutations);
 
-export const parseOfflineMutations = (raw: string | null): OfflineMutation[] => {
+export const parseOfflineMutations = (
+  raw: string | null,
+): OfflineMutation[] => {
   if (!raw) return [];
 
   try {
@@ -224,10 +221,12 @@ export function enqueueOfflineMutation(
       queue[updateIndex] = {
         ...queue[updateIndex],
         patch: {
-          ...(queue[updateIndex] as Extract<
-            OfflineMutation,
-            { kind: "update_item" }
-          >).patch,
+          ...(
+            queue[updateIndex] as Extract<
+              OfflineMutation,
+              { kind: "update_item" }
+            >
+          ).patch,
           ...mutation.patch,
         },
       } as Extract<OfflineMutation, { kind: "update_item" }>;
@@ -287,7 +286,9 @@ export function applyOfflineMutations(
         return [...items, buildOptimisticItem(mutation)];
       case "update_item":
         return items.map((item) =>
-          item.id === mutation.itemId ? applyPatchToItem(item, mutation.patch) : item,
+          item.id === mutation.itemId
+            ? applyPatchToItem(item, mutation.patch)
+            : item,
         );
       case "delete_item":
         return items.filter((item) => item.id !== mutation.itemId);

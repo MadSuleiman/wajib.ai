@@ -15,24 +15,41 @@ test.describe("mobile happy path", () => {
 
     await page.goto("/auth");
 
-    await page.getByLabel("Email").first().fill(email ?? "");
-    await page.getByLabel("Password").first().fill(password ?? "");
+    await page
+      .getByLabel("Email")
+      .first()
+      .fill(email ?? "");
+    await page
+      .getByLabel("Password")
+      .first()
+      .fill(password ?? "");
     await page.getByRole("button", { name: "Sign In" }).click();
 
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole("tab", { name: "Tasks" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Routines" })).toBeVisible();
 
-    await page.getByRole("button", { name: /Create task/i }).first().click();
-    await expect(page.getByRole("dialog", { name: "Create task" })).toBeVisible();
+    await page
+      .getByRole("button", { name: /Create task/i })
+      .first()
+      .click();
+    await expect(
+      page.getByRole("dialog", { name: "Create task" }),
+    ).toBeVisible();
     await page.getByLabel("Title").fill(taskTitle);
     await page.getByRole("button", { name: "Add task" }).click();
     await expect(page.getByText(taskTitle)).toBeVisible();
 
-    const taskCard = page.locator('[id^="item-"]').filter({ hasText: taskTitle }).first();
+    const taskCard = page
+      .locator('[id^="item-"]')
+      .filter({ hasText: taskTitle })
+      .first();
     await taskCard.getByRole("button", { name: "Mark as complete" }).click();
 
-    await page.getByRole("button", { name: /Create routine/i }).first().click();
+    await page
+      .getByRole("button", { name: /Create routine/i })
+      .first()
+      .click();
     await expect(
       page.getByRole("dialog", { name: "Create routine" }),
     ).toBeVisible();

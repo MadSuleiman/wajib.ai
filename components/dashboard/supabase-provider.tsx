@@ -65,7 +65,8 @@ const normalizeEstimatedHours = (hours?: string | null) => {
   };
 };
 
-const normalizeCategory = (category?: string) => (category || "task").trim() || "task";
+const normalizeCategory = (category?: string) =>
+  (category || "task").trim() || "task";
 
 const buildNormalizedCreateInput = ({
   title,
@@ -116,7 +117,8 @@ const buildNormalizedCreateInput = ({
       category: normalizeCategory(category),
       recurrence_type:
         itemKind === "routine" ? normalizedRecurrenceType : "none",
-      recurrence_interval: itemKind === "routine" ? normalizedRecurrenceInterval : 1,
+      recurrence_interval:
+        itemKind === "routine" ? normalizedRecurrenceInterval : 1,
       completed: false,
     },
   };
@@ -239,6 +241,7 @@ interface ListStore {
 }
 
 interface SyncState {
+  isCheckingConnection: boolean;
   isOnline: boolean;
   isSlowConnection: boolean;
   pendingChangesCount: number;
@@ -256,20 +259,23 @@ interface SupabaseContextValue {
 const SupabaseContext = createContext<SupabaseContextValue | null>(null);
 
 interface SupabaseProviderProps {
+  initialUserId?: string | null;
   initialItems: ListItem[];
   initialCategories: Category[];
   children: ReactNode;
 }
 
 export function SupabaseProvider({
+  initialUserId,
   initialItems,
   initialCategories,
   children,
 }: SupabaseProviderProps) {
   const supabase = useMemo(() => createClientSupabaseClient(), []);
-  const { isOnline, isSlowConnection } = useNetworkStatus();
+  const { isCheckingConnection, isOnline, isSlowConnection } =
+    useNetworkStatus();
   const [userId, setUserId] = useState<string | null>(
-    initialItems[0]?.user_id ?? null,
+    initialUserId ?? initialItems[0]?.user_id ?? null,
   );
   const [items, setItems] = useState<ListItem[]>(() =>
     sortItemsByPriority(initialItems),
@@ -461,31 +467,40 @@ export function SupabaseProvider({
     setItems((current) => current.filter((item) => item.id !== itemId));
   }, []);
 
-  const replaceOptimisticItem = useCallback((tempId: string, nextItem: ListItem) => {
-    const normalized =
-      nextItem.item_kind === "routine"
-        ? {
-            ...nextItem,
-            completed: completedRoutineIdsRef.current.has(nextItem.id),
-            sync_status: "synced" as const,
-            local_only: false,
-          }
-        : {
-            ...nextItem,
-            sync_status: "synced" as const,
-            local_only: false,
-          };
+  const replaceOptimisticItem = useCallback(
+    (tempId: string, nextItem: ListItem) => {
+      const normalized =
+        nextItem.item_kind === "routine"
+          ? {
+              ...nextItem,
+              completed: completedRoutineIdsRef.current.has(nextItem.id),
+              sync_status: "synced" as const,
+              local_only: false,
+            }
+          : {
+              ...nextItem,
+              sync_status: "synced" as const,
+              local_only: false,
+            };
 
-    setItems((current) =>
-      sortItemsByPriority([
-        ...current.filter((item) => item.id !== tempId && item.id !== normalized.id),
-        normalized,
-      ]),
-    );
-  }, []);
+      setItems((current) =>
+        sortItemsByPriority([
+          ...current.filter(
+            (item) => item.id !== tempId && item.id !== normalized.id,
+          ),
+          normalized,
+        ]),
+      );
+    },
+    [],
+  );
 
   const flushPendingChanges = useCallback(async () => {
-    if (!isOnline || isSyncingQueue || offlineMutationsRef.current.length === 0) {
+    if (
+      !isOnline ||
+      isSyncingQueue ||
+      offlineMutationsRef.current.length === 0
+    ) {
       return;
     }
 
@@ -499,7 +514,8 @@ export function SupabaseProvider({
       } = await supabase.auth.getUser();
 
       if (userError) throw userError;
-      if (!user) throw new Error("You must be signed in to sync offline changes.");
+      if (!user)
+        throw new Error("You must be signed in to sync offline changes.");
 
       setUserId(user.id);
 
@@ -695,11 +711,15 @@ export function SupabaseProvider({
       try {
         const itemKind = normalizedInput.itemKind;
         const fallbackUserId =
-          userId ?? itemsRef.current.find((item) => item.user_id)?.user_id ?? null;
+          userId ??
+          itemsRef.current.find((item) => item.user_id)?.user_id ??
+          null;
 
         if (!isOnline) {
           if (!fallbackUserId) {
-            toast.error("Reconnect once to restore your session before adding items offline.");
+            toast.error(
+              "Reconnect once to restore your session before adding items offline.",
+            );
             return false;
           }
 
@@ -714,7 +734,8 @@ export function SupabaseProvider({
           });
 
           toast.info("Saved offline", {
-            description: "This item will sync automatically when you're back online.",
+            description:
+              "This item will sync automatically when you're back online.",
           });
           return true;
         }
@@ -797,7 +818,9 @@ export function SupabaseProvider({
       if (!isOnline) {
         if (item.item_kind === "routine") {
           if (item.local_only || isTempId(item.id)) {
-            toast.error("Sync this new routine before tracking completions offline.");
+            toast.error(
+              "Sync this new routine before tracking completions offline.",
+            );
             return false;
           }
 
@@ -822,9 +845,15 @@ export function SupabaseProvider({
             periodEndDayKey: period?.endDayKey,
           });
 
-          toast.info(nextCompleted ? "Routine queued as complete" : "Routine queued as active", {
-            description: "We'll sync this completion change once you're back online.",
-          });
+          toast.info(
+            nextCompleted
+              ? "Routine queued as complete"
+              : "Routine queued as active",
+            {
+              description:
+                "We'll sync this completion change once you're back online.",
+            },
+          );
           return true;
         }
 
@@ -837,9 +866,13 @@ export function SupabaseProvider({
           patch: { completed: !item.completed },
         });
 
-        toast.info(!item.completed ? "Task queued as complete" : "Task queued as active", {
-          description: "We'll sync this change automatically when your connection returns.",
-        });
+        toast.info(
+          !item.completed ? "Task queued as complete" : "Task queued as active",
+          {
+            description:
+              "We'll sync this change automatically when your connection returns.",
+          },
+        );
         return true;
       }
 
@@ -1228,7 +1261,8 @@ export function SupabaseProvider({
           });
 
           toast.info("Changes queued offline", {
-            description: "Your edits will sync once the connection is restored.",
+            description:
+              "Your edits will sync once the connection is restored.",
           });
           return true;
         }
@@ -1284,7 +1318,8 @@ export function SupabaseProvider({
           });
 
           toast.info("Delete queued offline", {
-            description: "This item will be removed from the server once you're back online.",
+            description:
+              "This item will be removed from the server once you're back online.",
           });
           return true;
         }
@@ -1474,7 +1509,13 @@ export function SupabaseProvider({
       );
       stopRealtime();
     };
-  }, [isOnline, refreshItem, refreshRoutineCompletionsForDay, removeItem, supabase]);
+  }, [
+    isOnline,
+    refreshItem,
+    refreshRoutineCompletionsForDay,
+    removeItem,
+    supabase,
+  ]);
 
   useEffect(() => {
     if (!userId || !isOnline) return;
@@ -1531,6 +1572,7 @@ export function SupabaseProvider({
       },
       categories,
       sync: {
+        isCheckingConnection,
         isOnline,
         isSlowConnection,
         pendingChangesCount: offlineMutations.length,
@@ -1551,6 +1593,7 @@ export function SupabaseProvider({
       updateItemDetails,
       deleteItem,
       categories,
+      isCheckingConnection,
       isOnline,
       isSlowConnection,
       offlineMutations.length,
