@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { DashboardContent } from "@/components/dashboard/dashboard-content";
 import { SettingsPanel } from "@/components/dashboard/settings-panel";
 import { SupabaseProvider } from "@/components/dashboard/supabase-provider";
+import { SyncStatusBanner } from "@/components/dashboard/sync-status-banner";
 import type { Category, ListItem } from "@/types";
 import {
   useDashboardView,
@@ -59,6 +60,9 @@ export default function Dashboard({
       initialCategories={initialCategories}
     >
       <div className="w-full px-4 py-4 md:px-8">
+        <div className="mx-auto max-w-full">
+          <SyncStatusBanner />
+        </div>
         <motion.section
           className="mx-auto max-w-full"
           variants={container}

@@ -12,6 +12,19 @@ import {
 } from "react";
 import { toast } from "sonner";
 
+import { useNetworkStatus } from "@/hooks/use-network-status";
+import {
+  OFFLINE_MUTATIONS_STORAGE_KEY,
+  applyOfflineMutation,
+  applyOfflineMutations,
+  enqueueOfflineMutation,
+  isTempId,
+  parseOfflineMutations,
+  serializeOfflineMutations,
+  type ItemPatch,
+  type NormalizedCreateInput,
+  type OfflineMutation,
+} from "@/lib/offline-mutations";
 import { createClientSupabaseClient } from "@/lib/supabase-client";
 import { sortItemsByPriority } from "@/components/dashboard/list-utils";
 import type {
@@ -32,6 +45,158 @@ import {
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
   return String(error);
+};
+
+const createLocalId = () =>
+  `local-${typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`}`;
+
+const createMutationId = () =>
+  typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+const normalizeEstimatedHours = (hours?: string | null) => {
+  const rawValue = typeof hours === "string" ? hours.trim() : "";
+  if (!rawValue) return { value: null, isValid: true };
+  const parsed = Number.parseFloat(rawValue);
+  return {
+    value: Number.isNaN(parsed) ? null : parsed,
+    isValid: !Number.isNaN(parsed),
+  };
+};
+
+const normalizeCategory = (category?: string) => (category || "task").trim() || "task";
+
+const buildNormalizedCreateInput = ({
+  title,
+  priority,
+  urgency,
+  hours,
+  category,
+  recurrenceType,
+  recurrenceInterval,
+}: AddItemInput): {
+  itemKind: ItemKind;
+  normalized: NormalizedCreateInput;
+  validationError?: string;
+} => {
+  const hoursResult = normalizeEstimatedHours(hours ?? null);
+  if (!hoursResult.isValid) {
+    return {
+      itemKind: "task",
+      normalized: {
+        title,
+        value: priority,
+        urgency,
+        estimated_hours: null,
+        category: normalizeCategory(category),
+        recurrence_type: "none",
+        recurrence_interval: 1,
+        completed: false,
+      },
+      validationError: "Invalid hours value",
+    };
+  }
+
+  const normalizedRecurrenceType = recurrenceType ?? "none";
+  const normalizedRecurrenceInterval =
+    recurrenceInterval && recurrenceInterval > 0
+      ? Math.floor(recurrenceInterval)
+      : 1;
+  const itemKind: ItemKind =
+    normalizedRecurrenceType === "none" ? "task" : "routine";
+
+  return {
+    itemKind,
+    normalized: {
+      title: title.trim(),
+      value: priority,
+      urgency,
+      estimated_hours: hoursResult.value,
+      category: normalizeCategory(category),
+      recurrence_type:
+        itemKind === "routine" ? normalizedRecurrenceType : "none",
+      recurrence_interval: itemKind === "routine" ? normalizedRecurrenceInterval : 1,
+      completed: false,
+    },
+  };
+};
+
+const buildItemPatch = (
+  existingItem: ListItem,
+  updates: {
+    title?: string;
+    priority?: TaskPriority;
+    urgency?: TaskUrgency;
+    hours?: string | null;
+    category?: string;
+    recurrence?: { type: RecurrenceType; interval: number };
+  },
+) => {
+  const patch: ItemPatch = {};
+  let hasChanges = false;
+  let validationError: string | null = null;
+
+  if (typeof updates.title === "string") {
+    const trimmedTitle = updates.title.trim();
+    if (trimmedTitle && trimmedTitle !== existingItem.title) {
+      patch.title = trimmedTitle;
+      hasChanges = true;
+    }
+  }
+
+  if (typeof updates.category === "string") {
+    const normalizedCategory = normalizeCategory(updates.category);
+    if (normalizedCategory !== existingItem.category) {
+      patch.category = normalizedCategory;
+      hasChanges = true;
+    }
+  }
+
+  if (updates.priority && updates.priority !== existingItem.priority) {
+    patch.value = updates.priority;
+    hasChanges = true;
+  }
+
+  if (updates.urgency && updates.urgency !== existingItem.urgency) {
+    patch.urgency = updates.urgency;
+    hasChanges = true;
+  }
+
+  if (typeof updates.hours !== "undefined") {
+    const hoursResult = normalizeEstimatedHours(updates.hours);
+    if (!hoursResult.isValid) {
+      validationError = "Invalid hours value";
+    } else if (hoursResult.value !== existingItem.estimated_hours) {
+      patch.estimated_hours = hoursResult.value;
+      hasChanges = true;
+    }
+  }
+
+  if (updates.recurrence) {
+    if (existingItem.item_kind === "task") {
+      validationError = "Use recurrence update to convert tasks to routines";
+    } else {
+      const normalizedType =
+        updates.recurrence.type ?? existingItem.recurrence_type;
+      const normalizedInterval =
+        updates.recurrence.interval && updates.recurrence.interval > 0
+          ? Math.floor(updates.recurrence.interval)
+          : existingItem.recurrence_interval;
+
+      if (normalizedType !== existingItem.recurrence_type) {
+        patch.recurrence_type = normalizedType;
+        hasChanges = true;
+      }
+
+      if (normalizedInterval !== existingItem.recurrence_interval) {
+        patch.recurrence_interval = normalizedInterval;
+        hasChanges = true;
+      }
+    }
+  }
+
+  return { patch, hasChanges, validationError };
 };
 
 interface AddItemInput {
@@ -73,9 +238,19 @@ interface ListStore {
   deleteItem: (itemId: string) => Promise<boolean>;
 }
 
+interface SyncState {
+  isOnline: boolean;
+  isSlowConnection: boolean;
+  pendingChangesCount: number;
+  isSyncing: boolean;
+  lastSyncError: string | null;
+  flushPendingChanges: () => Promise<void>;
+}
+
 interface SupabaseContextValue {
   items: ListStore;
   categories: Category[];
+  sync: SyncState;
 }
 
 const SupabaseContext = createContext<SupabaseContextValue | null>(null);
@@ -92,6 +267,7 @@ export function SupabaseProvider({
   children,
 }: SupabaseProviderProps) {
   const supabase = useMemo(() => createClientSupabaseClient(), []);
+  const { isOnline, isSlowConnection } = useNetworkStatus();
   const [userId, setUserId] = useState<string | null>(
     initialItems[0]?.user_id ?? null,
   );
@@ -107,8 +283,14 @@ export function SupabaseProvider({
   const [completedRoutineIds, setCompletedRoutineIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [offlineMutations, setOfflineMutations] = useState<OfflineMutation[]>(
+    [],
+  );
+  const [isSyncingQueue, setIsSyncingQueue] = useState(false);
+  const [lastSyncError, setLastSyncError] = useState<string | null>(null);
   const routineCompletionDayRef = useRef(routineCompletionDay);
   const completedRoutineIdsRef = useRef(completedRoutineIds);
+  const offlineMutationsRef = useRef<OfflineMutation[]>(offlineMutations);
 
   useEffect(() => {
     routineCompletionDayRef.current = routineCompletionDay;
@@ -123,6 +305,39 @@ export function SupabaseProvider({
   }, [items]);
 
   useEffect(() => {
+    offlineMutationsRef.current = offlineMutations;
+    if (typeof window === "undefined") return;
+    if (!offlineMutations.length) {
+      window.localStorage.removeItem(OFFLINE_MUTATIONS_STORAGE_KEY);
+      return;
+    }
+    window.localStorage.setItem(
+      OFFLINE_MUTATIONS_STORAGE_KEY,
+      serializeOfflineMutations(offlineMutations),
+    );
+  }, [offlineMutations]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const storedMutations = parseOfflineMutations(
+      window.localStorage.getItem(OFFLINE_MUTATIONS_STORAGE_KEY),
+    );
+
+    if (!storedMutations.length) return;
+
+    offlineMutationsRef.current = storedMutations;
+    setOfflineMutations(storedMutations);
+    setItems((current) => applyOfflineMutations(current, storedMutations));
+
+    const storedUserId =
+      storedMutations.find((mutation) => "userId" in mutation)?.userId ?? null;
+    if (storedUserId) {
+      setUserId((current) => current ?? storedUserId);
+    }
+  }, []);
+
+  useEffect(() => {
     const intervalId = window.setInterval(() => {
       const nextKey = getLocalDayKey(new Date());
       setRoutineCompletionDay((current) =>
@@ -130,6 +345,12 @@ export function SupabaseProvider({
       );
     }, 60_000);
     return () => window.clearInterval(intervalId);
+  }, []);
+
+  const enqueueMutation = useCallback((mutation: OfflineMutation) => {
+    setOfflineMutations((current) => enqueueOfflineMutation(current, mutation));
+    setItems((current) => applyOfflineMutation(current, mutation));
+    setLastSyncError(null);
   }, []);
 
   const applyRoutineCompletionSet = useCallback((nextSet: Set<string>) => {
@@ -217,8 +438,14 @@ export function SupabaseProvider({
         ? {
             ...nextItem,
             completed: completedRoutineIdsRef.current.has(nextItem.id),
+            sync_status: "synced" as const,
+            local_only: false,
           }
-        : nextItem;
+        : {
+            ...nextItem,
+            sync_status: "synced" as const,
+            local_only: false,
+          };
     setItems((current) =>
       sortItemsByPriority(
         current.some((item) => item.id === normalized.id)
@@ -234,6 +461,208 @@ export function SupabaseProvider({
     setItems((current) => current.filter((item) => item.id !== itemId));
   }, []);
 
+  const replaceOptimisticItem = useCallback((tempId: string, nextItem: ListItem) => {
+    const normalized =
+      nextItem.item_kind === "routine"
+        ? {
+            ...nextItem,
+            completed: completedRoutineIdsRef.current.has(nextItem.id),
+            sync_status: "synced" as const,
+            local_only: false,
+          }
+        : {
+            ...nextItem,
+            sync_status: "synced" as const,
+            local_only: false,
+          };
+
+    setItems((current) =>
+      sortItemsByPriority([
+        ...current.filter((item) => item.id !== tempId && item.id !== normalized.id),
+        normalized,
+      ]),
+    );
+  }, []);
+
+  const flushPendingChanges = useCallback(async () => {
+    if (!isOnline || isSyncingQueue || offlineMutationsRef.current.length === 0) {
+      return;
+    }
+
+    setIsSyncingQueue(true);
+    setLastSyncError(null);
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) throw userError;
+      if (!user) throw new Error("You must be signed in to sync offline changes.");
+
+      setUserId(user.id);
+
+      let shouldRefreshRoutines = false;
+      const queueSnapshot = [...offlineMutationsRef.current];
+
+      for (const mutation of queueSnapshot) {
+        if (mutation.kind === "create_item") {
+          const { data, error } =
+            mutation.itemKind === "task"
+              ? await supabase
+                  .from("tasks")
+                  .insert([
+                    {
+                      title: mutation.data.title,
+                      completed: mutation.data.completed,
+                      value: mutation.data.value,
+                      urgency: mutation.data.urgency,
+                      estimated_hours: mutation.data.estimated_hours,
+                      category: mutation.data.category,
+                      user_id: user.id,
+                    },
+                  ] as never)
+                  .select()
+                  .single()
+              : await supabase
+                  .from("routines")
+                  .insert([
+                    {
+                      title: mutation.data.title,
+                      value: mutation.data.value,
+                      urgency: mutation.data.urgency,
+                      estimated_hours: mutation.data.estimated_hours,
+                      category: mutation.data.category,
+                      user_id: user.id,
+                      recurrence_type: mutation.data.recurrence_type,
+                      recurrence_interval: mutation.data.recurrence_interval,
+                    },
+                  ] as never)
+                  .select()
+                  .single();
+
+          if (error) throw error;
+          if (data) {
+            replaceOptimisticItem(
+              mutation.tempId,
+              mutation.itemKind === "task"
+                ? taskRowToListItem(data as never)
+                : routineRowToListItem(data as never),
+            );
+          }
+        } else if (mutation.kind === "update_item") {
+          const targetTable =
+            mutation.itemKind === "routine" ? "routines" : "tasks";
+          const { data, error } = await supabase
+            .from(targetTable)
+            .update(mutation.patch as never)
+            .eq("id", mutation.itemId)
+            .select()
+            .single();
+
+          if (error) throw error;
+          if (data) {
+            refreshItem(
+              targetTable === "tasks"
+                ? taskRowToListItem(data as never)
+                : routineRowToListItem(data as never),
+            );
+          }
+        } else if (mutation.kind === "delete_item") {
+          const targetTable =
+            mutation.itemKind === "routine" ? "routines" : "tasks";
+          const { error } = await supabase
+            .from(targetTable)
+            .delete()
+            .eq("id", mutation.itemId);
+
+          if (error) throw error;
+          removeItem(mutation.itemId);
+        } else if (mutation.kind === "toggle_routine_completion") {
+          if (mutation.completed) {
+            const { error } = await supabase.from("routine_logs").upsert(
+              [
+                {
+                  routine_id: mutation.itemId,
+                  user_id: mutation.userId,
+                  completed_day: mutation.actionDayKey,
+                  completed_at: mutation.queuedAt,
+                },
+              ] as never,
+              { onConflict: "routine_id,user_id,completed_day" },
+            );
+
+            if (error) throw error;
+          } else {
+            const deleteQuery = supabase
+              .from("routine_logs")
+              .delete()
+              .eq("routine_id", mutation.itemId)
+              .eq("user_id", mutation.userId);
+
+            const { error } =
+              mutation.periodStartDayKey && mutation.periodEndDayKey
+                ? await deleteQuery
+                    .gte("completed_day", mutation.periodStartDayKey)
+                    .lte("completed_day", mutation.periodEndDayKey)
+                : await deleteQuery.eq("completed_day", mutation.actionDayKey);
+
+            if (error) throw error;
+          }
+
+          shouldRefreshRoutines = true;
+          setItems((current) =>
+            sortItemsByPriority(
+              current.map((item) =>
+                item.id === mutation.itemId
+                  ? {
+                      ...item,
+                      completed: mutation.completed,
+                      sync_status: "synced",
+                      local_only: false,
+                    }
+                  : item,
+              ),
+            ),
+          );
+        }
+
+        setOfflineMutations((current) =>
+          current.filter((entry) => entry.id !== mutation.id),
+        );
+      }
+
+      if (shouldRefreshRoutines) {
+        await refreshRoutineCompletionsForDay({
+          userId: user.id,
+          now: new Date(),
+        });
+      }
+
+      toast.success("Queued changes synced", {
+        description: "Offline edits are now saved.",
+      });
+    } catch (error: unknown) {
+      const message =
+        getErrorMessage(error) || "Queued changes will retry when possible.";
+      setLastSyncError(message);
+      toast.error("Couldn't sync offline changes", {
+        description: message,
+      });
+    } finally {
+      setIsSyncingQueue(false);
+    }
+  }, [
+    isOnline,
+    isSyncingQueue,
+    refreshItem,
+    refreshRoutineCompletionsForDay,
+    removeItem,
+    replaceOptimisticItem,
+    supabase,
+  ]);
+
   const addItem: ListStore["addItem"] = useCallback(
     async ({
       title,
@@ -247,8 +676,49 @@ export function SupabaseProvider({
       const trimmedTitle = title.trim();
       if (!trimmedTitle) return false;
 
+      const normalizedInput = buildNormalizedCreateInput({
+        title: trimmedTitle,
+        priority,
+        urgency,
+        hours,
+        category,
+        recurrenceType,
+        recurrenceInterval,
+      });
+
+      if (normalizedInput.validationError) {
+        toast.error(normalizedInput.validationError);
+        return false;
+      }
+
       setIsLoading(true);
       try {
+        const itemKind = normalizedInput.itemKind;
+        const fallbackUserId =
+          userId ?? itemsRef.current.find((item) => item.user_id)?.user_id ?? null;
+
+        if (!isOnline) {
+          if (!fallbackUserId) {
+            toast.error("Reconnect once to restore your session before adding items offline.");
+            return false;
+          }
+
+          enqueueMutation({
+            id: createMutationId(),
+            kind: "create_item",
+            itemKind,
+            tempId: createLocalId(),
+            userId: fallbackUserId,
+            queuedAt: new Date().toISOString(),
+            data: normalizedInput.normalized,
+          });
+
+          toast.info("Saved offline", {
+            description: "This item will sync automatically when you're back online.",
+          });
+          return true;
+        }
+
         const {
           data: { user },
           error: userError,
@@ -260,24 +730,8 @@ export function SupabaseProvider({
           return false;
         }
 
-        const parsedHours =
-          hours && hours.trim() !== "" ? Number.parseFloat(hours) : null;
-        const estimatedHours =
-          parsedHours === null || Number.isNaN(parsedHours)
-            ? null
-            : parsedHours;
-        const normalizedCategory = (category || "task").trim() || "task";
-        const normalizedRecurrenceType: RecurrenceType =
-          recurrenceType ?? "none";
-        const normalizedRecurrenceInterval =
-          recurrenceInterval && recurrenceInterval > 0
-            ? Math.floor(recurrenceInterval)
-            : 1;
-        const itemKind: ItemKind =
-          normalizedRecurrenceType === "none" ? "task" : "routine";
-
         const { data, error } =
-          normalizedRecurrenceType === "none"
+          itemKind === "task"
             ? await supabase
                 .from("tasks")
                 .insert([
@@ -286,8 +740,8 @@ export function SupabaseProvider({
                     completed: false,
                     value: priority,
                     urgency,
-                    estimated_hours: estimatedHours,
-                    category: normalizedCategory,
+                    estimated_hours: normalizedInput.normalized.estimated_hours,
+                    category: normalizedInput.normalized.category,
                     user_id: user.id,
                   },
                 ] as never)
@@ -300,11 +754,12 @@ export function SupabaseProvider({
                     title: trimmedTitle,
                     value: priority,
                     urgency,
-                    estimated_hours: estimatedHours,
-                    category: normalizedCategory,
+                    estimated_hours: normalizedInput.normalized.estimated_hours,
+                    category: normalizedInput.normalized.category,
                     user_id: user.id,
-                    recurrence_type: normalizedRecurrenceType,
-                    recurrence_interval: normalizedRecurrenceInterval,
+                    recurrence_type: normalizedInput.normalized.recurrence_type,
+                    recurrence_interval:
+                      normalizedInput.normalized.recurrence_interval,
                   },
                 ] as never)
                 .select()
@@ -334,11 +789,60 @@ export function SupabaseProvider({
         setIsLoading(false);
       }
     },
-    [supabase, refreshItem],
+    [enqueueMutation, isOnline, refreshItem, supabase, userId],
   );
 
   const toggleItemCompletion: ListStore["toggleItemCompletion"] = useCallback(
     async (item) => {
+      if (!isOnline) {
+        if (item.item_kind === "routine") {
+          if (item.local_only || isTempId(item.id)) {
+            toast.error("Sync this new routine before tracking completions offline.");
+            return false;
+          }
+
+          const now = new Date();
+          const nextCompleted = !item.completed;
+          const dayKey = getLocalDayKey(now);
+          const period = getRoutinePeriodInfo(item, now);
+
+          if (dayKey !== routineCompletionDayRef.current) {
+            setRoutineCompletionDay(dayKey);
+          }
+
+          enqueueMutation({
+            id: createMutationId(),
+            kind: "toggle_routine_completion",
+            itemId: item.id,
+            queuedAt: now.toISOString(),
+            userId: item.user_id,
+            completed: nextCompleted,
+            actionDayKey: dayKey,
+            periodStartDayKey: period?.startDayKey,
+            periodEndDayKey: period?.endDayKey,
+          });
+
+          toast.info(nextCompleted ? "Routine queued as complete" : "Routine queued as active", {
+            description: "We'll sync this completion change once you're back online.",
+          });
+          return true;
+        }
+
+        enqueueMutation({
+          id: createMutationId(),
+          kind: "update_item",
+          itemId: item.id,
+          itemKind: "task",
+          queuedAt: new Date().toISOString(),
+          patch: { completed: !item.completed },
+        });
+
+        toast.info(!item.completed ? "Task queued as complete" : "Task queued as active", {
+          description: "We'll sync this change automatically when your connection returns.",
+        });
+        return true;
+      }
+
       if (item.item_kind === "routine") {
         try {
           const now = new Date();
@@ -428,7 +932,13 @@ export function SupabaseProvider({
         return false;
       }
     },
-    [refreshItem, refreshRoutineCompletionsForDay, supabase],
+    [
+      enqueueMutation,
+      isOnline,
+      refreshItem,
+      refreshRoutineCompletionsForDay,
+      supabase,
+    ],
   );
 
   const updateItemPriority: ListStore["updateItemPriority"] = useCallback(
@@ -549,6 +1059,11 @@ export function SupabaseProvider({
 
   const updateItemRecurrence: ListStore["updateItemRecurrence"] = useCallback(
     async (itemId, { type, interval }) => {
+      if (!isOnline) {
+        toast.error("Reconnect to change recurrence patterns.");
+        return false;
+      }
+
       try {
         const existingItem = items.find((current) => current.id === itemId);
         if (!existingItem) {
@@ -675,7 +1190,7 @@ export function SupabaseProvider({
         return false;
       }
     },
-    [items, refreshItem, removeItem, supabase],
+    [isOnline, items, refreshItem, removeItem, supabase],
   );
 
   const updateItemDetails: ListStore["updateItemDetails"] = useCallback(
@@ -687,73 +1202,34 @@ export function SupabaseProvider({
           return false;
         }
 
-        const payload: Record<string, unknown> = {};
-        let hasChanges = false;
+        const { patch, hasChanges, validationError } = buildItemPatch(
+          existingItem,
+          updates,
+        );
 
-        if (typeof updates.title === "string") {
-          const trimmedTitle = updates.title.trim();
-          if (trimmedTitle && trimmedTitle !== existingItem.title) {
-            payload.title = trimmedTitle;
-            hasChanges = true;
-          }
-        }
-
-        if (updates.category) {
-          const normalizedCategory = updates.category.trim() || "task";
-          if (normalizedCategory !== existingItem.category) {
-            payload.category = normalizedCategory;
-            hasChanges = true;
-          }
-        }
-
-        if (updates.priority && updates.priority !== existingItem.priority) {
-          payload.value = updates.priority;
-          hasChanges = true;
-        }
-
-        if (updates.urgency && updates.urgency !== existingItem.urgency) {
-          payload.urgency = updates.urgency;
-          hasChanges = true;
-        }
-
-        if (typeof updates.hours !== "undefined") {
-          const hoursValue =
-            updates.hours?.trim() === "" ? null : updates.hours;
-          const parsedHours =
-            hoursValue === null || typeof hoursValue === "undefined"
-              ? null
-              : Number.parseFloat(hoursValue);
-          if (parsedHours !== null && Number.isNaN(parsedHours)) {
-            toast.error("Invalid hours value");
-            return false;
-          }
-          if (parsedHours !== existingItem.estimated_hours) {
-            payload.estimated_hours = parsedHours;
-            hasChanges = true;
-          }
-        }
-
-        if (updates.recurrence) {
-          if (existingItem.item_kind === "task") {
-            // Task can only get recurrence via updateItemRecurrence which will convert; here we treat as no-op.
-            toast.error("Use recurrence update to convert tasks to routines");
-            return false;
-          }
-
-          const normalizedType: RecurrenceType =
-            updates.recurrence.type ?? existingItem.recurrence_type;
-          const normalizedInterval =
-            updates.recurrence.interval && updates.recurrence.interval > 0
-              ? Math.floor(updates.recurrence.interval)
-              : existingItem.recurrence_interval;
-
-          payload.recurrence_type = normalizedType;
-          payload.recurrence_interval = normalizedInterval;
-          hasChanges = true;
+        if (validationError) {
+          toast.error(validationError);
+          return false;
         }
 
         if (!hasChanges) {
           toast.info("No changes to save");
+          return true;
+        }
+
+        if (!isOnline) {
+          enqueueMutation({
+            id: createMutationId(),
+            kind: "update_item",
+            itemId,
+            itemKind: existingItem.item_kind,
+            queuedAt: new Date().toISOString(),
+            patch,
+          });
+
+          toast.info("Changes queued offline", {
+            description: "Your edits will sync once the connection is restored.",
+          });
           return true;
         }
 
@@ -762,7 +1238,7 @@ export function SupabaseProvider({
 
         const { data, error } = await supabase
           .from(targetTable)
-          .update(payload as never)
+          .update(patch as never)
           .eq("id", itemId)
           .select()
           .single();
@@ -786,15 +1262,35 @@ export function SupabaseProvider({
         return false;
       }
     },
-    [items, refreshItem, supabase],
+    [enqueueMutation, isOnline, items, refreshItem, supabase],
   );
 
   const deleteItem: ListStore["deleteItem"] = useCallback(
     async (itemId) => {
       try {
         const existingItem = items.find((current) => current.id === itemId);
+        if (!existingItem) {
+          toast.error("Item not found");
+          return false;
+        }
+
+        if (!isOnline) {
+          enqueueMutation({
+            id: createMutationId(),
+            kind: "delete_item",
+            itemId,
+            itemKind: existingItem.item_kind,
+            queuedAt: new Date().toISOString(),
+          });
+
+          toast.info("Delete queued offline", {
+            description: "This item will be removed from the server once you're back online.",
+          });
+          return true;
+        }
+
         const targetTable =
-          existingItem?.item_kind === "routine" ? "routines" : "tasks";
+          existingItem.item_kind === "routine" ? "routines" : "tasks";
 
         const { error } = await supabase
           .from(targetTable)
@@ -816,8 +1312,27 @@ export function SupabaseProvider({
         return false;
       }
     },
-    [items, supabase, removeItem],
+    [enqueueMutation, isOnline, items, supabase, removeItem],
   );
+
+  useEffect(() => {
+    if (!isOnline || offlineMutations.length === 0) return;
+
+    void flushPendingChanges();
+  }, [flushPendingChanges, isOnline, offlineMutations.length]);
+
+  useEffect(() => {
+    if (!isOnline) return;
+
+    const handleOnline = () => {
+      void flushPendingChanges();
+    };
+
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [flushPendingChanges, isOnline]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -841,6 +1356,8 @@ export function SupabaseProvider({
     };
 
     const startRealtime = async () => {
+      if (!isOnline) return;
+
       const {
         data: { user },
         error: userError,
@@ -935,6 +1452,7 @@ export function SupabaseProvider({
     };
 
     const restartRealtimeWhenVisible = () => {
+      if (!isOnline) return;
       if (
         typeof document !== "undefined" &&
         document.visibilityState !== "visible"
@@ -956,20 +1474,20 @@ export function SupabaseProvider({
       );
       stopRealtime();
     };
-  }, [refreshItem, refreshRoutineCompletionsForDay, removeItem, supabase]);
+  }, [isOnline, refreshItem, refreshRoutineCompletionsForDay, removeItem, supabase]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !isOnline) return;
     void refreshRoutineCompletionsForDay({
       userId,
       now: new Date(),
     }).catch((error: unknown) => {
       console.error("Failed to refresh routine completions", error);
     });
-  }, [refreshRoutineCompletionsForDay, routineCompletionDay, userId]);
+  }, [isOnline, refreshRoutineCompletionsForDay, routineCompletionDay, userId]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !isOnline) return;
 
     const refreshWhenVisible = () => {
       if (
@@ -995,7 +1513,7 @@ export function SupabaseProvider({
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [refreshRoutineCompletionsForDay, userId]);
+  }, [isOnline, refreshRoutineCompletionsForDay, userId]);
 
   const value = useMemo(
     () => ({
@@ -1012,6 +1530,14 @@ export function SupabaseProvider({
         deleteItem,
       },
       categories,
+      sync: {
+        isOnline,
+        isSlowConnection,
+        pendingChangesCount: offlineMutations.length,
+        isSyncing: isSyncingQueue,
+        lastSyncError,
+        flushPendingChanges,
+      },
     }),
     [
       items,
@@ -1025,6 +1551,12 @@ export function SupabaseProvider({
       updateItemDetails,
       deleteItem,
       categories,
+      isOnline,
+      isSlowConnection,
+      offlineMutations.length,
+      isSyncingQueue,
+      lastSyncError,
+      flushPendingChanges,
     ],
   );
 

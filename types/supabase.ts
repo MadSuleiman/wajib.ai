@@ -57,6 +57,8 @@ export interface ListItem {
   category: string;
   recurrence_type: RecurrenceType;
   recurrence_interval: number;
+  sync_status?: "synced" | "pending";
+  local_only?: boolean;
 }
 
 export interface CategoryRow {
@@ -101,6 +103,8 @@ export const taskRowToListItem = (task: TaskRow): ListItem => {
     item_kind: "task",
     recurrence_type: "none",
     recurrence_interval: 1,
+    sync_status: "synced",
+    local_only: false,
   };
 };
 
@@ -113,5 +117,7 @@ export const routineRowToListItem = (routine: RoutineRow): ListItem => {
     urgency: routine.urgency ?? "medium",
     item_kind: "routine",
     completed: false,
+    sync_status: "synced",
+    local_only: false,
   };
 };

@@ -11,7 +11,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       <CreationDialogsProvider>
         <div className="flex min-h-screen flex-col">
           <Navigation />
-          <main>{children}</main>
+          <main className="pb-[env(safe-area-inset-bottom)]">{children}</main>
         </div>
       </CreationDialogsProvider>
     </DashboardViewProvider>

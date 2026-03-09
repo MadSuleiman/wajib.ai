@@ -6,13 +6,24 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/app/theme-provider";
 import { ZoomPrevention } from "@/components/app/anti-zoom";
+import { ServiceWorkerProvider } from "@/components/app/service-worker-provider";
 import Grainient from "@/components/Grainient";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-arabicStyle" });
 
 export const metadata: Metadata = {
+  applicationName: "Wajib",
   title: "wajib",
   description: "An app for assorting your tasks",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Wajib",
+  },
+  formatDetection: {
+    telephone: false,
+  },
   icons: {
     icon: [
       {
@@ -26,6 +37,11 @@ export const metadata: Metadata = {
         href: "/logos/logo-white.png",
       },
     ],
+    apple: [
+      {
+        url: "/logos/apple-touch-icon.png",
+      },
+    ],
   },
 };
 
@@ -34,6 +50,10 @@ export const viewport: Viewport = {
   initialScale: 0.9,
   maximumScale: 0.9,
   userScalable: false,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#111111" },
+  ],
 };
 
 export default async function RootLayout({
@@ -45,6 +65,7 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ZoomPrevention />
+        <ServiceWorkerProvider />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

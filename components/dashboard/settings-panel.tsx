@@ -29,6 +29,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { useDailyHighlightPreference } from "@/hooks/use-daily-highlight-preference";
+import { useInstallPrompt } from "@/hooks/use-install-prompt";
 
 interface ErrorWithMessage {
   message: string;
@@ -53,6 +54,8 @@ export function SettingsPanel() {
   const { items } = useSupabase();
   const { isEnabled: isDailyHighlightEnabled, setIsEnabled } =
     useDailyHighlightPreference();
+  const { isInstalled, canPromptInstall, promptToInstall, isIos } =
+    useInstallPrompt();
 
   useEffect(() => {
     async function getUserEmail() {
@@ -153,6 +156,58 @@ export function SettingsPanel() {
                 onCheckedChange={setIsEnabled}
               />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Install app</CardTitle>
+            <CardDescription>
+              Save Wajib to your home screen for a cleaner full-screen experience
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {isInstalled ? (
+              <p className="text-sm text-muted-foreground">
+                Wajib is already installed and running in standalone mode on this
+                device.
+              </p>
+            ) : canPromptInstall ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Install the app to get the standalone layout, cached shell, and
+                  faster relaunch behavior.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void promptToInstall()}
+                >
+                  Install Wajib
+                </Button>
+              </>
+            ) : isIos ? (
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>
+                  On iPhone or iPad, open the browser share sheet and choose
+                  <span className="font-medium text-foreground">
+                    {" "}
+                    Add to Home Screen
+                  </span>
+                  .
+                </p>
+                <p>
+                  Launching from the home screen gives you the standalone PWA
+                  experience and the best offline behavior.
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Your browser has not exposed an install prompt yet. Revisit the
+                dashboard after a little use and the install option should appear
+                if the browser supports it.
+              </p>
+            )}
           </CardContent>
         </Card>
 

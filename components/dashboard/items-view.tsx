@@ -286,6 +286,7 @@ const DesktopTable = React.memo(function DesktopTable({
               <button
                 type="button"
                 onClick={() => toggleItemCompletion(item)}
+                disabled={item.item_kind === "routine" && item.local_only}
                 className="mt-1 flex h-5 w-5 items-center justify-center rounded-full border text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2"
                 aria-pressed={isCompleted}
               >
@@ -296,14 +297,21 @@ const DesktopTable = React.memo(function DesktopTable({
                 )}
               </button>
               <div className="flex flex-col gap-1">
-                <span
-                  className={cn(
-                    "font-medium leading-tight",
-                    isCompleted && "text-muted-foreground line-through",
-                  )}
-                >
-                  {item.title}
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={cn(
+                      "font-medium leading-tight",
+                      isCompleted && "text-muted-foreground line-through",
+                    )}
+                  >
+                    {item.title}
+                  </span>
+                  {item.sync_status === "pending" ? (
+                    <Badge variant="outline" className="text-[0.65rem]">
+                      Pending sync
+                    </Badge>
+                  ) : null}
+                </div>
                 <span className="text-xs text-muted-foreground">
                   {addedDescriptions.get(item.id) ??
                     formatAdded(item.created_at)}
@@ -731,7 +739,7 @@ function MobileListItem({
           <button
             type="button"
             onClick={handleCompletionButtonClick}
-            disabled={isCompleting}
+            disabled={isCompleting || (item.item_kind === "routine" && item.local_only)}
             className="flex h-8 w-8 items-center justify-center rounded-full border text-muted-foreground transition hover:border-primary hover:text-primary disabled:cursor-default disabled:opacity-60"
             aria-label={isCompleted ? "Mark as active" : "Mark as complete"}
             aria-pressed={isCompleted}
@@ -770,6 +778,11 @@ function MobileListItem({
             {urgencyIcons[item.urgency]}
             {urgencyLabels[item.urgency]}
           </Badge>
+          {item.sync_status === "pending" ? (
+            <Badge variant="outline" className="text-[0.7rem]">
+              Pending sync
+            </Badge>
+          ) : null}
           <span className="text-muted-foreground">
             {item.estimated_hours ? `${item.estimated_hours}h` : "No estimate"}
           </span>

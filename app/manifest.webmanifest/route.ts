@@ -1,8 +1,10 @@
 const manifest = {
+  id: "/",
   name: "wajib",
   short_name: "Wajib",
   description: "An app to help you with your daily tasks or purchasing",
   start_url: "/",
+  scope: "/",
   display: "standalone",
   background_color: "#ffffff",
   theme_color: "#000000",
@@ -16,11 +18,13 @@ const manifest = {
       src: "/logos/android-chrome-192x192.png",
       sizes: "192x192",
       type: "image/png",
+      purpose: "any maskable",
     },
     {
       src: "/logos/android-chrome-512x512.png",
       sizes: "512x512",
       type: "image/png",
+      purpose: "any maskable",
     },
     {
       src: "/logos/apple-touch-icon.png",
