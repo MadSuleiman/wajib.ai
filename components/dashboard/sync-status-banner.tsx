@@ -1,12 +1,24 @@
 "use client";
 
 import { RefreshCw, SignalHigh, WifiOff } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { useSupabase } from "@/components/dashboard/supabase-provider";
 import { Button } from "@/components/ui/button";
 
 export function SyncStatusBanner() {
   const { sync } = useSupabase();
+  const [currentTime, setCurrentTime] = useState<number | null>(null);
+
+  useEffect(() => {
+    const updateCurrentTime = () => {
+      setCurrentTime(Date.now());
+    };
+
+    updateCurrentTime();
+    const interval = window.setInterval(updateCurrentTime, 30000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   if (
     sync.isCheckingConnection &&
@@ -71,12 +83,43 @@ export function SyncStatusBanner() {
     return "Connection is slow. Saves and refreshes may take longer than usual.";
   })();
 
+  const formatLastSync = (date: Date) => {
+    const referenceTime = currentTime ?? date.getTime();
+    const diffMs = date.getTime() - referenceTime;
+    const diffSec = Math.round(diffMs / 1000);
+    const diffMin = Math.round(diffMs / 60000);
+    const diffHour = Math.round(diffMs / 3600000);
+    const diffDay = Math.round(diffMs / 86400000);
+
+    const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+
+    if (Math.abs(diffSec) < 60) return rtf.format(diffSec, "second");
+    if (Math.abs(diffMin) < 60) return rtf.format(diffMin, "minute");
+    if (Math.abs(diffHour) < 24) return rtf.format(diffHour, "hour");
+    return rtf.format(diffDay, "day");
+  };
+
+  const shouldShowLastSync =
+    !sync.isOnline ||
+    sync.pendingChangesCount > 0 ||
+    Boolean(sync.lastSyncError);
+
+  const lastSyncLabel =
+    shouldShowLastSync && sync.lastSyncTime
+      ? `Last synced ${formatLastSync(sync.lastSyncTime)}`
+      : null;
+
   return (
     <div className="mb-4 rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm backdrop-blur">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-start gap-2 text-amber-950 dark:text-amber-100">
           {icon}
-          <p>{message}</p>
+          <div className="flex flex-col gap-0.5">
+            <p className="font-medium">{message}</p>
+            {lastSyncLabel && (
+              <p className="text-xs opacity-80">{lastSyncLabel}</p>
+            )}
+          </div>
         </div>
         {sync.isOnline && sync.pendingChangesCount > 0 ? (
           <Button

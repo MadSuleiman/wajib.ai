@@ -10,7 +10,7 @@ export default async function Home({
   const sp = await searchParams;
   const rawView = sp?.view;
   const viewParam = Array.isArray(rawView) ? rawView[0] : rawView;
-  const { userId, items, categories, dailyHighlightEnabled } =
+  const { userId, items, categories, dailyHighlightEnabled, lastSyncAt } =
     await loadDashboardBootstrapData();
 
   const initialView: DashboardView =
@@ -23,6 +23,7 @@ export default async function Home({
       initialCategories={categories}
       initialView={initialView}
       initialDailyHighlightEnabled={dailyHighlightEnabled}
+      initialLastSyncAt={lastSyncAt}
     />
   );
 }

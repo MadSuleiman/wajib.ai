@@ -12,12 +12,14 @@ export function PopoutView({
   initialCategories,
   focusKind,
   initialDailyHighlightEnabled,
+  initialLastSyncAt,
 }: {
   userId: string;
   initialItems: ListItem[];
   initialCategories: Category[];
   focusKind: "tasks" | "routines";
   initialDailyHighlightEnabled: boolean;
+  initialLastSyncAt: string;
 }) {
   return (
     <DailyHighlightPreferenceProvider
@@ -28,6 +30,7 @@ export function PopoutView({
         initialUserId={userId}
         initialItems={initialItems}
         initialCategories={initialCategories}
+        initialLastSyncAt={initialLastSyncAt}
       >
         <CreationDialogsProvider>
           <div className="min-h-screen px-4 py-4 md:px-6">

@@ -26,12 +26,14 @@ export default function Dashboard({
   initialCategories,
   initialView,
   initialDailyHighlightEnabled,
+  initialLastSyncAt,
 }: {
   userId: string;
   initialItems: ListItem[];
   initialCategories: Category[];
   initialView: DashboardView;
   initialDailyHighlightEnabled: boolean;
+  initialLastSyncAt: string;
 }) {
   const { view, setView } = useDashboardView();
   const isSettingsOpen = view === "settings";
@@ -68,6 +70,7 @@ export default function Dashboard({
         initialUserId={userId}
         initialItems={initialItems}
         initialCategories={initialCategories}
+        initialLastSyncAt={initialLastSyncAt}
       >
         <div className="w-full px-4 py-4 md:px-8">
           <div className="mx-auto max-w-full">

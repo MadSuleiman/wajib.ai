@@ -47,6 +47,12 @@ const getErrorMessage = (error: unknown): string => {
   return String(error);
 };
 
+const parseSyncTimestamp = (value?: string | null) => {
+  if (!value) return null;
+  const timestamp = new Date(value);
+  return Number.isNaN(timestamp.getTime()) ? null : timestamp;
+};
+
 const createLocalId = () =>
   `local-${typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`}`;
 
@@ -247,6 +253,7 @@ interface SyncState {
   pendingChangesCount: number;
   isSyncing: boolean;
   lastSyncError: string | null;
+  lastSyncTime: Date | null;
   flushPendingChanges: () => Promise<void>;
 }
 
@@ -262,6 +269,7 @@ interface SupabaseProviderProps {
   initialUserId?: string | null;
   initialItems: ListItem[];
   initialCategories: Category[];
+  initialLastSyncAt?: string | null;
   children: ReactNode;
 }
 
@@ -269,6 +277,7 @@ export function SupabaseProvider({
   initialUserId,
   initialItems,
   initialCategories,
+  initialLastSyncAt,
   children,
 }: SupabaseProviderProps) {
   const supabase = useMemo(() => createClientSupabaseClient(), []);
@@ -294,9 +303,27 @@ export function SupabaseProvider({
   );
   const [isSyncingQueue, setIsSyncingQueue] = useState(false);
   const [lastSyncError, setLastSyncError] = useState<string | null>(null);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(() =>
+    parseSyncTimestamp(initialLastSyncAt),
+  );
   const routineCompletionDayRef = useRef(routineCompletionDay);
   const completedRoutineIdsRef = useRef(completedRoutineIds);
   const offlineMutationsRef = useRef<OfflineMutation[]>(offlineMutations);
+  const recordSuccessfulSync = useCallback((syncedAt: Date = new Date()) => {
+    setLastSyncTime(syncedAt);
+  }, []);
+
+  useEffect(() => {
+    const nextSyncTime = parseSyncTimestamp(initialLastSyncAt);
+    if (!nextSyncTime) return;
+
+    setLastSyncTime((current) => {
+      if (!current || nextSyncTime.getTime() > current.getTime()) {
+        return nextSyncTime;
+      }
+      return current;
+    });
+  }, [initialLastSyncAt]);
 
   useEffect(() => {
     routineCompletionDayRef.current = routineCompletionDay;
@@ -330,16 +357,17 @@ export function SupabaseProvider({
       window.localStorage.getItem(OFFLINE_MUTATIONS_STORAGE_KEY),
     );
 
-    if (!storedMutations.length) return;
+    if (storedMutations.length) {
+      offlineMutationsRef.current = storedMutations;
+      setOfflineMutations(storedMutations);
+      setItems((current) => applyOfflineMutations(current, storedMutations));
 
-    offlineMutationsRef.current = storedMutations;
-    setOfflineMutations(storedMutations);
-    setItems((current) => applyOfflineMutations(current, storedMutations));
-
-    const storedUserId =
-      storedMutations.find((mutation) => "userId" in mutation)?.userId ?? null;
-    if (storedUserId) {
-      setUserId((current) => current ?? storedUserId);
+      const storedUserId =
+        storedMutations.find((mutation) => "userId" in mutation)?.userId ??
+        null;
+      if (storedUserId) {
+        setUserId((current) => current ?? storedUserId);
+      }
     }
   }, []);
 
@@ -420,6 +448,8 @@ export function SupabaseProvider({
 
       if (error) throw error;
 
+      recordSuccessfulSync();
+
       const nextSet = new Set<string>();
       (data ?? []).forEach((row) => {
         if (!row?.routine_id || !row?.completed_day) return;
@@ -435,7 +465,7 @@ export function SupabaseProvider({
       });
       applyRoutineCompletionSet(nextSet);
     },
-    [applyRoutineCompletionSet, supabase],
+    [applyRoutineCompletionSet, recordSuccessfulSync, supabase],
   );
 
   const refreshItem = useCallback((nextItem: ListItem) => {
@@ -656,6 +686,9 @@ export function SupabaseProvider({
         });
       }
 
+      setLastSyncError(null);
+      recordSuccessfulSync();
+
       toast.success("Queued changes synced", {
         description: "Offline edits are now saved.",
       });
@@ -672,6 +705,7 @@ export function SupabaseProvider({
   }, [
     isOnline,
     isSyncingQueue,
+    recordSuccessfulSync,
     refreshItem,
     refreshRoutineCompletionsForDay,
     removeItem,
@@ -794,6 +828,7 @@ export function SupabaseProvider({
               ? taskRowToListItem(data as never)
               : routineRowToListItem(data as never);
           refreshItem(item);
+          recordSuccessfulSync();
         }
 
         toast.success("Item added", {
@@ -810,7 +845,14 @@ export function SupabaseProvider({
         setIsLoading(false);
       }
     },
-    [enqueueMutation, isOnline, refreshItem, supabase, userId],
+    [
+      enqueueMutation,
+      isOnline,
+      recordSuccessfulSync,
+      refreshItem,
+      supabase,
+      userId,
+    ],
   );
 
   const toggleItemCompletion: ListStore["toggleItemCompletion"] = useCallback(
@@ -952,6 +994,7 @@ export function SupabaseProvider({
         if (error) throw error;
         if (data) {
           refreshItem(taskRowToListItem(data as never));
+          recordSuccessfulSync();
         }
         toast.success(
           nextCompleted ? "Task completed" : "Task marked as active",
@@ -968,6 +1011,7 @@ export function SupabaseProvider({
     [
       enqueueMutation,
       isOnline,
+      recordSuccessfulSync,
       refreshItem,
       refreshRoutineCompletionsForDay,
       supabase,
@@ -996,6 +1040,7 @@ export function SupabaseProvider({
               ? taskRowToListItem(data as never)
               : routineRowToListItem(data as never);
           refreshItem(updated);
+          recordSuccessfulSync();
         }
         toast.success("Value updated");
         return true;
@@ -1007,7 +1052,7 @@ export function SupabaseProvider({
         return false;
       }
     },
-    [items, supabase, refreshItem],
+    [items, recordSuccessfulSync, supabase, refreshItem],
   );
 
   const updateItemHours: ListStore["updateItemHours"] = useCallback(
@@ -1039,6 +1084,7 @@ export function SupabaseProvider({
               ? taskRowToListItem(data as never)
               : routineRowToListItem(data as never);
           refreshItem(updated);
+          recordSuccessfulSync();
         }
         toast.success("Hours updated");
         return true;
@@ -1050,7 +1096,7 @@ export function SupabaseProvider({
         return false;
       }
     },
-    [items, supabase, refreshItem],
+    [items, recordSuccessfulSync, supabase, refreshItem],
   );
 
   const updateItemCategory: ListStore["updateItemCategory"] = useCallback(
@@ -1076,6 +1122,7 @@ export function SupabaseProvider({
               ? taskRowToListItem(data as never)
               : routineRowToListItem(data as never);
           refreshItem(updated);
+          recordSuccessfulSync();
         }
         toast.success("Category updated");
         return true;
@@ -1087,7 +1134,7 @@ export function SupabaseProvider({
         return false;
       }
     },
-    [items, supabase, refreshItem],
+    [items, recordSuccessfulSync, supabase, refreshItem],
   );
 
   const updateItemRecurrence: ListStore["updateItemRecurrence"] = useCallback(
@@ -1144,6 +1191,7 @@ export function SupabaseProvider({
           if (created) {
             removeItem(existingItem.id);
             refreshItem(routineRowToListItem(created as never));
+            recordSuccessfulSync();
           }
 
           toast.success("Converted to routine");
@@ -1187,6 +1235,7 @@ export function SupabaseProvider({
             if (createdTask) {
               removeItem(existingItem.id);
               refreshItem(taskRowToListItem(createdTask as never));
+              recordSuccessfulSync();
             }
 
             toast.success("Converted to task");
@@ -1208,6 +1257,7 @@ export function SupabaseProvider({
           if (error) throw error;
           if (data) {
             refreshItem(routineRowToListItem(data as never));
+            recordSuccessfulSync();
           }
           toast.success("Recurrence updated");
           return true;
@@ -1223,7 +1273,7 @@ export function SupabaseProvider({
         return false;
       }
     },
-    [isOnline, items, refreshItem, removeItem, supabase],
+    [isOnline, items, recordSuccessfulSync, refreshItem, removeItem, supabase],
   );
 
   const updateItemDetails: ListStore["updateItemDetails"] = useCallback(
@@ -1284,6 +1334,7 @@ export function SupabaseProvider({
               ? taskRowToListItem(data as never)
               : routineRowToListItem(data as never);
           refreshItem(updated);
+          recordSuccessfulSync();
         }
 
         toast.success("Task updated");
@@ -1296,7 +1347,14 @@ export function SupabaseProvider({
         return false;
       }
     },
-    [enqueueMutation, isOnline, items, refreshItem, supabase],
+    [
+      enqueueMutation,
+      isOnline,
+      items,
+      recordSuccessfulSync,
+      refreshItem,
+      supabase,
+    ],
   );
 
   const deleteItem: ListStore["deleteItem"] = useCallback(
@@ -1335,6 +1393,7 @@ export function SupabaseProvider({
         if (error) throw error;
 
         removeItem(itemId);
+        recordSuccessfulSync();
         toast.success("Item deleted", {
           description: "The item has been deleted successfully.",
         });
@@ -1347,7 +1406,14 @@ export function SupabaseProvider({
         return false;
       }
     },
-    [enqueueMutation, isOnline, items, supabase, removeItem],
+    [
+      enqueueMutation,
+      isOnline,
+      items,
+      recordSuccessfulSync,
+      supabase,
+      removeItem,
+    ],
   );
 
   useEffect(() => {
@@ -1419,10 +1485,12 @@ export function SupabaseProvider({
             if (isCancelled) return;
             if (payload.eventType === "DELETE" && payload.old?.id) {
               removeItem(String(payload.old.id));
+              recordSuccessfulSync();
               return;
             }
             if (payload.new) {
               refreshItem(taskRowToListItem(payload.new as never));
+              recordSuccessfulSync();
             }
           },
         )
@@ -1442,6 +1510,7 @@ export function SupabaseProvider({
             if (isCancelled) return;
             if (payload.eventType === "DELETE" && payload.old?.id) {
               removeItem(String(payload.old.id));
+              recordSuccessfulSync();
               void refreshRoutineCompletionsForDay({
                 userId: user.id,
                 now: new Date(),
@@ -1452,6 +1521,7 @@ export function SupabaseProvider({
             }
             if (payload.new) {
               refreshItem(routineRowToListItem(payload.new as never));
+              recordSuccessfulSync();
               void refreshRoutineCompletionsForDay({
                 userId: user.id,
                 now: new Date(),
@@ -1511,6 +1581,7 @@ export function SupabaseProvider({
     };
   }, [
     isOnline,
+    recordSuccessfulSync,
     refreshItem,
     refreshRoutineCompletionsForDay,
     removeItem,
@@ -1578,6 +1649,7 @@ export function SupabaseProvider({
         pendingChangesCount: offlineMutations.length,
         isSyncing: isSyncingQueue,
         lastSyncError,
+        lastSyncTime,
         flushPendingChanges,
       },
     }),
@@ -1599,6 +1671,7 @@ export function SupabaseProvider({
       offlineMutations.length,
       isSyncingQueue,
       lastSyncError,
+      lastSyncTime,
       flushPendingChanges,
     ],
   );

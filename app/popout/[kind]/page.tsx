@@ -13,7 +13,7 @@ export default async function PopoutPage({
 }) {
   const { kind } = await params;
   if (!isValidKind(kind)) notFound();
-  const { userId, items, categories, dailyHighlightEnabled } =
+  const { userId, items, categories, dailyHighlightEnabled, lastSyncAt } =
     await loadDashboardBootstrapData();
 
   return (
@@ -23,6 +23,7 @@ export default async function PopoutPage({
       initialItems={items}
       initialCategories={categories}
       initialDailyHighlightEnabled={dailyHighlightEnabled}
+      initialLastSyncAt={lastSyncAt}
     />
   );
 }

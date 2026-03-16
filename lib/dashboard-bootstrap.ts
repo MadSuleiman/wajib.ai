@@ -12,6 +12,7 @@ export type DashboardBootstrapData = {
   items: ListItem[];
   categories: Category[];
   dailyHighlightEnabled: boolean;
+  lastSyncAt: string;
 };
 
 const getErrorMessage = (error: unknown) => {
@@ -70,6 +71,7 @@ export async function loadDashboardBootstrapData(): Promise<DashboardBootstrapDa
       routineRowToListItem(routine),
     ),
   ]);
+  const lastSyncAt = new Date().toISOString();
 
   return {
     userId: user.id,
@@ -78,5 +80,6 @@ export async function loadDashboardBootstrapData(): Promise<DashboardBootstrapDa
     dailyHighlightEnabled:
       preferencesResult.data?.daily_highlight_enabled ??
       DEFAULT_DAILY_HIGHLIGHT_ENABLED,
+    lastSyncAt,
   };
 }
