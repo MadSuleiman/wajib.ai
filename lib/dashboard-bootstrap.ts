@@ -6,6 +6,11 @@ import type { Category, ListItem } from "@/types";
 import { routineRowToListItem, taskRowToListItem } from "@/types/supabase";
 
 const DEFAULT_DAILY_HIGHLIGHT_ENABLED = true;
+const TASK_COLUMNS =
+  "id, created_at, title, completed, value, urgency, estimated_hours, user_id, category";
+const ROUTINE_COLUMNS =
+  "id, created_at, title, value, urgency, estimated_hours, user_id, category, recurrence_type, recurrence_interval";
+const CATEGORY_COLUMNS = "slug, label, description, color";
 
 export type DashboardBootstrapData = {
   userId: string;
@@ -33,9 +38,9 @@ export async function loadDashboardBootstrapData(): Promise<DashboardBootstrapDa
 
   const [tasksResult, routinesResult, categoriesResult, preferencesResult] =
     await Promise.all([
-      supabase.from("tasks").select("*"),
-      supabase.from("routines").select("*"),
-      supabase.from("categories").select("*"),
+      supabase.from("tasks").select(TASK_COLUMNS).eq("user_id", user.id),
+      supabase.from("routines").select(ROUTINE_COLUMNS).eq("user_id", user.id),
+      supabase.from("categories").select(CATEGORY_COLUMNS),
       supabase
         .from("user_preferences")
         .select("daily_highlight_enabled")

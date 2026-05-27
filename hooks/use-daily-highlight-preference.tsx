@@ -8,9 +8,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { toast } from "sonner";
 
 import { createClientSupabaseClient } from "@/lib/supabase-client";
+import { toast } from "@/lib/toast";
 
 type DailyHighlightPreferenceContextValue = {
   isEnabled: boolean;

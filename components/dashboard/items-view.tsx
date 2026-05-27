@@ -6,6 +6,7 @@ import React, {
   useState,
   type ReactNode,
 } from "react";
+import dynamic from "next/dynamic";
 import { formatDistanceStrict, formatDistanceToNow } from "date-fns";
 import { motion } from "framer-motion";
 import {
@@ -24,20 +25,9 @@ import {
   urgencyLabels,
 } from "@/components/dashboard/list-utils";
 import type { ListItem, TaskPriority, TaskUrgency } from "@/types";
-import {
-  DataTable,
-  type DataTableColumn,
-  type DataTableSortState,
-} from "@/components/ui/data-table";
+import type { DataTableSortState } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
 import { recurrenceLabelMap } from "./constants";
 import type { CategoryOption, DerivedStatus, ItemGroup } from "./types";
 import {
@@ -45,10 +35,26 @@ import {
   formatTimeZoneDisplay,
   getLocalTimeZone,
 } from "@/lib/timezone";
-import { TaskEditor } from "./task-editor";
-import { RoutineEditor } from "./routine-editor";
 import { itemAnchorId } from "./item-anchor";
 import { getRoutinePeriodInfo } from "./routine-period";
+
+const DeferredTaskEditor = dynamic(() =>
+  import("./task-editor").then((mod) => mod.TaskEditor),
+);
+const DeferredRoutineEditor = dynamic(() =>
+  import("./routine-editor").then((mod) => mod.RoutineEditor),
+);
+const DesktopTable = dynamic(
+  () => import("./desktop-items-table").then((mod) => mod.DesktopItemsTable),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-lg border bg-card/40 p-6">
+        <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+      </div>
+    ),
+  },
+);
 
 const formatAddedDescription = (createdAt: string, timeZone: string) => {
   const absolute = formatLocalDateTime(createdAt, timeZone);
@@ -203,321 +209,30 @@ function ItemsViewComponent({
         />
       )}
 
-      {editorKind === "routine" ? (
-        <RoutineEditor
+      {isEditorOpen && editorKind === "routine" ? (
+        <DeferredRoutineEditor
           isOpen={isEditorOpen}
           onOpenChange={handleEditorOpenChange}
           item={editorItem}
           categoryOptions={categoryOptions}
           onSave={updateItemDetails}
         />
-      ) : (
-        <TaskEditor
+      ) : null}
+      {isEditorOpen && editorKind === "task" ? (
+        <DeferredTaskEditor
           isOpen={isEditorOpen}
           onOpenChange={handleEditorOpenChange}
           item={editorItem}
           categoryOptions={categoryOptions}
           onSave={updateItemDetails}
         />
-      )}
+      ) : null}
     </div>
   );
 }
 
 export const ItemsView = React.memo(ItemsViewComponent);
 ItemsView.displayName = "ItemsView";
-
-type DesktopTableProps = {
-  variant: "task" | "routine";
-  items: ListItem[];
-  groups: ItemGroup[];
-  categoryMap: Map<string, CategoryOption>;
-  derivedStatuses: Map<string, DerivedStatus>;
-  toggleItemCompletion: (item: ListItem) => Promise<boolean>;
-  deleteItem: (itemId: string) => Promise<boolean>;
-  onScheduleItem: (item: ListItem) => void;
-  emptyState: React.ReactNode;
-  sortState?: DataTableSortState;
-  onSortChange: (nextSort: DataTableSortState) => void;
-  formatAdded: (value: string) => string;
-  onEditTask: (item: ListItem) => void;
-  getRoutineTiming: (item: ListItem) => {
-    label: "Due in" | "Resets in";
-    value: string;
-    statusText: string;
-  } | null;
-};
-
-const DesktopTable = React.memo(function DesktopTable({
-  variant,
-  items,
-  groups,
-  categoryMap,
-  derivedStatuses,
-  toggleItemCompletion,
-  deleteItem,
-  onScheduleItem,
-  emptyState,
-  sortState,
-  onSortChange,
-  formatAdded,
-  onEditTask,
-  getRoutineTiming,
-}: DesktopTableProps) {
-  const addedDescriptions = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const item of items) {
-      map.set(item.id, formatAdded(item.created_at));
-    }
-    return map;
-  }, [formatAdded, items]);
-
-  const columns = useMemo<DataTableColumn<ListItem>[]>(() => {
-    const columnsLocal: DataTableColumn<ListItem>[] = [
-      {
-        id: "title",
-        header: "Item",
-        sortable: true,
-        cell: (item) => {
-          const isCompleted =
-            (derivedStatuses.get(item.id) ?? "active") === "completed";
-          return (
-            <div className="flex items-start gap-3">
-              <button
-                type="button"
-                onClick={() => toggleItemCompletion(item)}
-                disabled={item.item_kind === "routine" && item.local_only}
-                className="mt-1 flex h-5 w-5 items-center justify-center rounded-full border text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2"
-                aria-pressed={isCompleted}
-              >
-                {isCompleted ? (
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
-                ) : (
-                  <Circle className="h-4 w-4" />
-                )}
-              </button>
-              <div className="flex flex-col gap-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span
-                    className={cn(
-                      "font-medium leading-tight",
-                      isCompleted && "text-muted-foreground line-through",
-                    )}
-                  >
-                    {item.title}
-                  </span>
-                  {item.sync_status === "pending" ? (
-                    <Badge variant="outline" className="text-[0.65rem]">
-                      Pending sync
-                    </Badge>
-                  ) : null}
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {addedDescriptions.get(item.id) ??
-                    formatAdded(item.created_at)}
-                </span>
-              </div>
-            </div>
-          );
-        },
-      },
-      {
-        id: "category",
-        header: "Category",
-        cell: (item) => {
-          const categoryInfo = categoryMap.get(item.category);
-          return (
-            <div className="flex items-center gap-2 text-sm capitalize">
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{
-                  backgroundColor:
-                    categoryInfo?.color ?? "var(--muted-foreground)",
-                }}
-              />
-              <span>{categoryInfo?.label ?? item.category}</span>
-            </div>
-          );
-        },
-      },
-    ];
-
-    if (variant === "routine") {
-      columnsLocal.push({
-        id: "recurrence",
-        header: "Recurrence",
-        cell: (item) => {
-          const timing = getRoutineTiming(item);
-          return (
-            <div className="flex flex-col text-sm">
-              <span className="font-medium">
-                {item.recurrence_type === "none"
-                  ? "One-time"
-                  : `${recurrenceLabelMap[item.recurrence_type]} · every ${item.recurrence_interval}`}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {item.recurrence_type === "none"
-                  ? "Doesn't repeat"
-                  : (timing?.statusText ?? "Scheduled")}
-              </span>
-              {timing ? (
-                <span className="text-xs text-muted-foreground">
-                  {timing.label}: {timing.value}
-                </span>
-              ) : null}
-            </div>
-          );
-        },
-      });
-    }
-
-    columnsLocal.push(
-      {
-        id: "priority",
-        header: "Value",
-        sortable: true,
-        cell: (item) => (
-          <Badge
-            variant="secondary"
-            className="flex items-center gap-2 capitalize"
-          >
-            {priorityIcons[item.priority]}
-            {priorityLabels[item.priority]}
-          </Badge>
-        ),
-      },
-      {
-        id: "urgency",
-        header: "Urgency",
-        sortable: true,
-        cell: (item) => (
-          <Badge
-            variant="outline"
-            className="flex items-center gap-2 capitalize"
-          >
-            {urgencyIcons[item.urgency]}
-            {urgencyLabels[item.urgency]}
-          </Badge>
-        ),
-      },
-      {
-        id: "hours",
-        header: "Hours",
-        sortable: true,
-        cell: (item) => (
-          <span className="text-sm font-medium">
-            {typeof item.estimated_hours === "number"
-              ? `${item.estimated_hours}h`
-              : "—"}
-          </span>
-        ),
-      },
-      {
-        id: "added",
-        header: "Added",
-        sortable: true,
-        cell: (item) => (
-          <span className="text-sm text-muted-foreground">
-            {addedDescriptions.get(item.id) ?? formatAdded(item.created_at)}
-          </span>
-        ),
-      },
-      {
-        id: "actions",
-        header: "",
-        cell: (item) => (
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => onEditTask(item)}
-              className="text-muted-foreground hover:text-primary"
-            >
-              <Pencil className="mr-2 h-3.5 w-3.5" /> Edit
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => deleteItem(item.id)}
-              className="text-muted-foreground hover:text-destructive"
-            >
-              <Trash2 className="h-4 w-4" />
-              <span className="sr-only">Delete item</span>
-            </Button>
-          </div>
-        ),
-      },
-    );
-
-    return columnsLocal;
-  }, [
-    variant,
-    categoryMap,
-    deleteItem,
-    derivedStatuses,
-    addedDescriptions,
-    formatAdded,
-    getRoutineTiming,
-    onEditTask,
-    toggleItemCompletion,
-  ]);
-  return (
-    <DataTable
-      columns={columns}
-      data={items}
-      groups={groups}
-      getRowId={(item) => itemAnchorId(item.id)}
-      emptyState={emptyState}
-      sortState={sortState}
-      onSortChange={onSortChange}
-      rowWrapper={(row, item, rowKey) => {
-        const isCompleted =
-          (derivedStatuses.get(item.id) ?? "active") === "completed";
-        const itemLabel = item.item_kind === "routine" ? "routine" : "task";
-        return (
-          <ContextMenu key={rowKey}>
-            <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
-            <ContextMenuContent className="w-48">
-              <ContextMenuItem
-                onSelect={() => {
-                  void toggleItemCompletion(item);
-                }}
-              >
-                {isCompleted ? "Mark as active" : "Mark as complete"}
-              </ContextMenuItem>
-              <ContextMenuItem
-                onSelect={() => {
-                  onEditTask(item);
-                }}
-              >
-                Edit {itemLabel}
-              </ContextMenuItem>
-              <ContextMenuItem
-                onSelect={() => {
-                  onScheduleItem(item);
-                }}
-              >
-                Schedule 30-min block
-              </ContextMenuItem>
-              <ContextMenuSeparator />
-              <ContextMenuItem
-                className="text-destructive focus:text-destructive"
-                onSelect={() => {
-                  void deleteItem(item.id);
-                }}
-              >
-                Delete {itemLabel}
-              </ContextMenuItem>
-            </ContextMenuContent>
-          </ContextMenu>
-        );
-      }}
-    />
-  );
-});
-DesktopTable.displayName = "DesktopTable";
 
 type MobileListProps = {
   groups: ItemGroup[];

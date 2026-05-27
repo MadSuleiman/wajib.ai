@@ -1,24 +1,33 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 
 import { DashboardContent } from "@/components/dashboard/dashboard-content";
-import { SettingsPanel } from "@/components/dashboard/settings-panel";
 import { SupabaseProvider } from "@/components/dashboard/supabase-provider";
-import { SyncStatusBanner } from "@/components/dashboard/sync-status-banner";
 import type { Category, ListItem } from "@/types";
 import {
   useDashboardView,
   type DashboardView,
 } from "@/hooks/use-dashboard-view";
 import { DailyHighlightPreferenceProvider } from "@/hooks/use-daily-highlight-preference";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+
+const DashboardSettingsDialog = dynamic(() =>
+  import("@/components/dashboard/dashboard-settings-dialog").then(
+    (mod) => mod.DashboardSettingsDialog,
+  ),
+);
+const SyncStatusBanner = dynamic(
+  () =>
+    import("@/components/dashboard/sync-status-banner").then(
+      (mod) => mod.SyncStatusBanner,
+    ),
+  {
+    ssr: false,
+    loading: () => null,
+  },
+);
 
 export default function Dashboard({
   userId,
@@ -86,21 +95,12 @@ export default function Dashboard({
           </motion.section>
         </div>
 
-        <Dialog
-          open={isSettingsOpen}
-          onOpenChange={(open) => !open && closeSettings()}
-        >
-          <DialogContent className="max-h-[90vh] w-full max-w-[min(90vw,900px)] overflow-hidden border-none p-0">
-            <DialogHeader className="sr-only">
-              <DialogTitle>Settings</DialogTitle>
-            </DialogHeader>
-            <div className="flex h-full max-h-[90vh] flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-6">
-                <SettingsPanel />
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {isSettingsOpen ? (
+          <DashboardSettingsDialog
+            open={isSettingsOpen}
+            onOpenChange={(open) => !open && closeSettings()}
+          />
+        ) : null}
       </SupabaseProvider>
     </DailyHighlightPreferenceProvider>
   );

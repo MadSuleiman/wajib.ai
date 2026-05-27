@@ -7,6 +7,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import dynamic from "next/dynamic";
 import { addMinutes } from "date-fns";
 import { ArrowUpRight, Filter, Plus } from "lucide-react";
 
@@ -15,14 +16,7 @@ import { useCreationDialogs } from "@/components/dashboard/creation-dialogs-cont
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDailyHighlightPreference } from "@/hooks/use-daily-highlight-preference";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import {
   groupItems,
   sortItems,
@@ -47,13 +41,41 @@ import type {
   ItemGroup,
   StatusFilter,
 } from "./types";
-import { NewItemCard } from "./new-item-card";
-import { InsightsGrid } from "./insights-grid";
-import { FiltersCard } from "./filters-card";
 import { ItemsView } from "./items-view";
-import { DailyHighlightCard } from "./daily-highlight-card";
 import { itemAnchorId } from "./item-anchor";
-import { ScheduleBlockDialog } from "./schedule-block-dialog";
+
+const DeferredCreateItemDialog = dynamic(
+  () => import("./create-item-dialog").then((mod) => mod.CreateItemDialog),
+  { loading: () => null },
+);
+const DeferredInsightsGrid = dynamic(
+  () => import("./insights-grid").then((mod) => mod.InsightsGrid),
+  { loading: () => <DeferredPanelFallback /> },
+);
+const DeferredFiltersCard = dynamic(
+  () => import("./filters-card").then((mod) => mod.FiltersCard),
+  { loading: () => <DeferredPanelFallback /> },
+);
+const DeferredScheduleBlockDialog = dynamic(() =>
+  import("./schedule-block-dialog").then((mod) => mod.ScheduleBlockDialog),
+);
+const DeferredDailyHighlightCard = dynamic(
+  () => import("./daily-highlight-card").then((mod) => mod.DailyHighlightCard),
+  {
+    ssr: false,
+    loading: () => <DeferredPanelFallback />,
+  },
+);
+
+function DeferredPanelFallback() {
+  return (
+    <div className="space-y-3 rounded-lg border bg-card/50 p-4">
+      <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+      <div className="h-10 animate-pulse rounded-md bg-muted/70" />
+      <div className="h-10 animate-pulse rounded-md bg-muted/70" />
+    </div>
+  );
+}
 
 const getDerivedStatus = (item: ListItem, now: number): DerivedStatus => {
   void now;
@@ -598,8 +620,10 @@ export function DashboardContent({
     [addItem],
   );
 
-  const newTaskForm = (
-    <NewItemCard
+  const createTaskLauncher = isCreateTaskOpen ? (
+    <DeferredCreateItemDialog
+      open={isCreateTaskOpen}
+      onOpenChange={setIsCreateTaskOpen}
       variant="task"
       onAddItem={handleAddTask}
       onBulkAddItem={handleBulkAddTask}
@@ -607,10 +631,12 @@ export function DashboardContent({
       categoryOptions={categoryOptions}
       defaultCategory={fallbackCategory}
     />
-  );
+  ) : null;
 
-  const newRoutineForm = (
-    <NewItemCard
+  const createRoutineLauncher = isCreateRoutineOpen ? (
+    <DeferredCreateItemDialog
+      open={isCreateRoutineOpen}
+      onOpenChange={setIsCreateRoutineOpen}
       variant="routine"
       onAddItem={handleAddRoutine}
       onBulkAddItem={handleBulkAddRoutine}
@@ -618,35 +644,7 @@ export function DashboardContent({
       categoryOptions={categoryOptions}
       defaultCategory={fallbackCategory}
     />
-  );
-
-  const createTaskLauncher = (
-    <Dialog open={isCreateTaskOpen} onOpenChange={setIsCreateTaskOpen}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Create task</DialogTitle>
-          <DialogDescription>
-            Capture an item and add details before saving.
-          </DialogDescription>
-        </DialogHeader>
-        {newTaskForm}
-      </DialogContent>
-    </Dialog>
-  );
-
-  const createRoutineLauncher = (
-    <Dialog open={isCreateRoutineOpen} onOpenChange={setIsCreateRoutineOpen}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Create routine</DialogTitle>
-          <DialogDescription>
-            Add a recurring cadence and mark completions over time.
-          </DialogDescription>
-        </DialogHeader>
-        {newRoutineForm}
-      </DialogContent>
-    </Dialog>
-  );
+  ) : null;
 
   const renderListSection = (kind: "tasks" | "routines") => {
     const isTask = kind === "tasks";
@@ -703,12 +701,14 @@ export function DashboardContent({
     <div className={`space-y-6${isMobile && !isPopout ? " pb-32" : ""}`}>
       {createRoutineLauncher}
       {createTaskLauncher}
-      <ScheduleBlockDialog
-        isOpen={isScheduleOpen}
-        onOpenChange={handleScheduleOpenChange}
-        item={scheduleItem}
-        onSchedule={handleScheduleBlock}
-      />
+      {isScheduleOpen ? (
+        <DeferredScheduleBlockDialog
+          isOpen={isScheduleOpen}
+          onOpenChange={handleScheduleOpenChange}
+          item={scheduleItem}
+          onSchedule={handleScheduleBlock}
+        />
+      ) : null}
 
       {!isPopout ? (
         <div className="flex justify-between gap-2">
@@ -730,7 +730,7 @@ export function DashboardContent({
       ) : null}
 
       {!isPopout && isDailyHighlightEnabled ? (
-        <DailyHighlightCard
+        <DeferredDailyHighlightCard
           task={dailyTask}
           routine={dailyRoutine}
           derivedStatuses={derivedStatuses}
@@ -742,7 +742,7 @@ export function DashboardContent({
       ) : null}
 
       {!isPopout && showInsights ? (
-        <InsightsGrid
+        <DeferredInsightsGrid
           categoryChartData={categoryChartData}
           recurringBreakdownData={recurringBreakdownData}
           summaryText={`${items.length} total items`}
@@ -755,7 +755,7 @@ export function DashboardContent({
         />
       ) : null}
       {!isPopout && showFilters ? (
-        <FiltersCard
+        <DeferredFiltersCard
           statusFilter={statusFilter}
           onStatusChange={setStatusFilter}
           categoryFilter={categoryFilter}
@@ -772,22 +772,45 @@ export function DashboardContent({
       {focusKind ? (
         focusedSection
       ) : isMobile ? (
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) =>
-            setActiveTab(value === "routines" ? "routines" : "tasks")
-          }
-          className="space-y-4"
-        >
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="tasks">Tasks</TabsTrigger>
-            <TabsTrigger value="routines">Routines</TabsTrigger>
-          </TabsList>
-          <TabsContent value="tasks">{renderListSection("tasks")}</TabsContent>
-          <TabsContent value="routines">
-            {renderListSection("routines")}
-          </TabsContent>
-        </Tabs>
+        <div className="space-y-4">
+          <div
+            className="grid w-full grid-cols-2 rounded-lg bg-muted p-1"
+            role="tablist"
+            aria-label="Dashboard sections"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "tasks"}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                activeTab === "tasks"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground",
+              )}
+              onClick={() => setActiveTab("tasks")}
+            >
+              Tasks
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "routines"}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                activeTab === "routines"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground",
+              )}
+              onClick={() => setActiveTab("routines")}
+            >
+              Routines
+            </button>
+          </div>
+          {activeTab === "tasks"
+            ? renderListSection("tasks")
+            : renderListSection("routines")}
+        </div>
       ) : (
         <div className="grid grid-cols-2 gap-6">
           {renderListSection("tasks")}

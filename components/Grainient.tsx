@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { Mesh, Program, Renderer, Triangle } from "ogl";
 
-interface GrainientProps {
+export interface GrainientProps {
   timeSpeed?: number;
   colorBalance?: number;
   warpStrength?: number;
