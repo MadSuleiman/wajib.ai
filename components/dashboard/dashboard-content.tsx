@@ -16,7 +16,7 @@ import { useCreationDialogs } from "@/components/dashboard/creation-dialogs-cont
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useDailyHighlightPreference } from "@/hooks/use-daily-highlight-preference";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   groupItems,
   sortItems,
@@ -772,45 +772,25 @@ export function DashboardContent({
       {focusKind ? (
         focusedSection
       ) : isMobile ? (
-        <div className="space-y-4">
-          <div
-            className="grid w-full grid-cols-2 rounded-lg bg-muted p-1"
-            role="tablist"
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) =>
+            setActiveTab(value === "routines" ? "routines" : "tasks")
+          }
+          className="space-y-4"
+        >
+          <TabsList
+            className="grid w-full grid-cols-2 bg-muted"
             aria-label="Dashboard sections"
           >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === "tasks"}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                activeTab === "tasks"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground",
-              )}
-              onClick={() => setActiveTab("tasks")}
-            >
-              Tasks
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === "routines"}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                activeTab === "routines"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground",
-              )}
-              onClick={() => setActiveTab("routines")}
-            >
-              Routines
-            </button>
-          </div>
-          {activeTab === "tasks"
-            ? renderListSection("tasks")
-            : renderListSection("routines")}
-        </div>
+            <TabsTrigger value="tasks">Tasks</TabsTrigger>
+            <TabsTrigger value="routines">Routines</TabsTrigger>
+          </TabsList>
+          <TabsContent value="tasks">{renderListSection("tasks")}</TabsContent>
+          <TabsContent value="routines">
+            {renderListSection("routines")}
+          </TabsContent>
+        </Tabs>
       ) : (
         <div className="grid grid-cols-2 gap-6">
           {renderListSection("tasks")}

@@ -24,6 +24,13 @@ import {
 } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { recurrenceLabelMap } from "./constants";
 import type { CategoryOption, DerivedStatus, ItemGroup } from "./types";
 import { itemAnchorId } from "./item-anchor";
@@ -284,6 +291,49 @@ export const DesktopItemsTable = React.memo(function DesktopItemsTable({
       emptyState={emptyState}
       sortState={sortState}
       onSortChange={onSortChange}
+      rowWrapper={(row, item, rowKey) => {
+        const isCompleted =
+          (derivedStatuses.get(item.id) ?? "active") === "completed";
+        const itemLabel = item.item_kind === "routine" ? "routine" : "task";
+
+        return (
+          <ContextMenu key={rowKey}>
+            <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
+            <ContextMenuContent className="w-48">
+              <ContextMenuItem
+                onSelect={() => {
+                  void toggleItemCompletion(item);
+                }}
+              >
+                {isCompleted ? "Mark as active" : "Mark as complete"}
+              </ContextMenuItem>
+              <ContextMenuItem
+                onSelect={() => {
+                  onEditTask(item);
+                }}
+              >
+                Edit {itemLabel}
+              </ContextMenuItem>
+              <ContextMenuItem
+                onSelect={() => {
+                  onScheduleItem(item);
+                }}
+              >
+                Schedule 30-min block
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                className="text-destructive focus:text-destructive"
+                onSelect={() => {
+                  void deleteItem(item.id);
+                }}
+              >
+                Delete {itemLabel}
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
+        );
+      }}
     />
   );
 });
