@@ -10,9 +10,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { toast } from "sonner";
 
 import { useNetworkStatus } from "@/hooks/use-network-status";
-import { toast } from "@/lib/toast";
 import {
   OFFLINE_MUTATIONS_STORAGE_KEY,
   applyOfflineMutation,

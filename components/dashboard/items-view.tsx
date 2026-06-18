@@ -6,7 +6,6 @@ import React, {
   useState,
   type ReactNode,
 } from "react";
-import dynamic from "next/dynamic";
 import { formatDistanceStrict, formatDistanceToNow } from "date-fns";
 import { motion } from "framer-motion";
 import {
@@ -37,24 +36,9 @@ import {
 } from "@/lib/timezone";
 import { itemAnchorId } from "./item-anchor";
 import { getRoutinePeriodInfo } from "./routine-period";
-
-const DeferredTaskEditor = dynamic(() =>
-  import("./task-editor").then((mod) => mod.TaskEditor),
-);
-const DeferredRoutineEditor = dynamic(() =>
-  import("./routine-editor").then((mod) => mod.RoutineEditor),
-);
-const DesktopTable = dynamic(
-  () => import("./desktop-items-table").then((mod) => mod.DesktopItemsTable),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="rounded-lg border bg-card/40 p-6">
-        <div className="h-4 w-40 animate-pulse rounded bg-muted" />
-      </div>
-    ),
-  },
-);
+import { TaskEditor } from "./task-editor";
+import { RoutineEditor } from "./routine-editor";
+import { DesktopItemsTable as DesktopTable } from "./desktop-items-table";
 
 const formatAddedDescription = (createdAt: string, timeZone: string) => {
   const absolute = formatLocalDateTime(createdAt, timeZone);
@@ -209,24 +193,23 @@ function ItemsViewComponent({
         />
       )}
 
-      {isEditorOpen && editorKind === "routine" ? (
-        <DeferredRoutineEditor
+      {editorKind === "routine" ? (
+        <RoutineEditor
           isOpen={isEditorOpen}
           onOpenChange={handleEditorOpenChange}
           item={editorItem}
           categoryOptions={categoryOptions}
           onSave={updateItemDetails}
         />
-      ) : null}
-      {isEditorOpen && editorKind === "task" ? (
-        <DeferredTaskEditor
+      ) : (
+        <TaskEditor
           isOpen={isEditorOpen}
           onOpenChange={handleEditorOpenChange}
           item={editorItem}
           categoryOptions={categoryOptions}
           onSave={updateItemDetails}
         />
-      ) : null}
+      )}
     </div>
   );
 }

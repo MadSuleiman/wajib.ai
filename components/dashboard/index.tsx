@@ -1,33 +1,18 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
-import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 
 import { DashboardContent } from "@/components/dashboard/dashboard-content";
+import { DashboardSettingsDialog } from "@/components/dashboard/dashboard-settings-dialog";
 import { SupabaseProvider } from "@/components/dashboard/supabase-provider";
+import { SyncStatusBanner } from "@/components/dashboard/sync-status-banner";
 import type { Category, ListItem } from "@/types";
 import {
   useDashboardView,
   type DashboardView,
 } from "@/hooks/use-dashboard-view";
 import { DailyHighlightPreferenceProvider } from "@/hooks/use-daily-highlight-preference";
-
-const DashboardSettingsDialog = dynamic(() =>
-  import("@/components/dashboard/dashboard-settings-dialog").then(
-    (mod) => mod.DashboardSettingsDialog,
-  ),
-);
-const SyncStatusBanner = dynamic(
-  () =>
-    import("@/components/dashboard/sync-status-banner").then(
-      (mod) => mod.SyncStatusBanner,
-    ),
-  {
-    ssr: false,
-    loading: () => null,
-  },
-);
 
 export default function Dashboard({
   userId,
@@ -95,12 +80,10 @@ export default function Dashboard({
           </motion.section>
         </div>
 
-        {isSettingsOpen ? (
-          <DashboardSettingsDialog
-            open={isSettingsOpen}
-            onOpenChange={(open) => !open && closeSettings()}
-          />
-        ) : null}
+        <DashboardSettingsDialog
+          open={isSettingsOpen}
+          onOpenChange={(open) => !open && closeSettings()}
+        />
       </SupabaseProvider>
     </DailyHighlightPreferenceProvider>
   );

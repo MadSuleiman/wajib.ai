@@ -3,10 +3,11 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Suspense } from "react";
 import "./globals.css";
+import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/app/theme-provider";
+import { ZoomPrevention } from "@/components/app/anti-zoom";
+import { ServiceWorkerProvider } from "@/components/app/service-worker-provider";
 import { DeferredGrainient } from "@/components/app/deferred-grainient";
-import { ClientEffects } from "@/components/app/client-effects";
-import { DashboardLoading } from "@/components/dashboard/dashboard-loading";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-arabicStyle" });
 
@@ -63,6 +64,8 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
+        <ZoomPrevention />
+        <ServiceWorkerProvider />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -97,10 +100,12 @@ export default async function RootLayout({
               zoom={1}
             />
             <div className="grainient-content">
-              <Suspense fallback={<DashboardLoading />}>{children}</Suspense>
+              <Suspense fallback={<div className="min-h-screen" />}>
+                {children}
+              </Suspense>
             </div>
           </div>
-          <ClientEffects />
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

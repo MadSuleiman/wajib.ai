@@ -7,7 +7,6 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import dynamic from "next/dynamic";
 import { addMinutes } from "date-fns";
 import { ArrowUpRight, Filter, Plus } from "lucide-react";
 
@@ -43,39 +42,11 @@ import type {
 } from "./types";
 import { ItemsView } from "./items-view";
 import { itemAnchorId } from "./item-anchor";
-
-const DeferredCreateItemDialog = dynamic(
-  () => import("./create-item-dialog").then((mod) => mod.CreateItemDialog),
-  { loading: () => null },
-);
-const DeferredInsightsGrid = dynamic(
-  () => import("./insights-grid").then((mod) => mod.InsightsGrid),
-  { loading: () => <DeferredPanelFallback /> },
-);
-const DeferredFiltersCard = dynamic(
-  () => import("./filters-card").then((mod) => mod.FiltersCard),
-  { loading: () => <DeferredPanelFallback /> },
-);
-const DeferredScheduleBlockDialog = dynamic(() =>
-  import("./schedule-block-dialog").then((mod) => mod.ScheduleBlockDialog),
-);
-const DeferredDailyHighlightCard = dynamic(
-  () => import("./daily-highlight-card").then((mod) => mod.DailyHighlightCard),
-  {
-    ssr: false,
-    loading: () => <DeferredPanelFallback />,
-  },
-);
-
-function DeferredPanelFallback() {
-  return (
-    <div className="space-y-3 rounded-lg border bg-card/50 p-4">
-      <div className="h-4 w-32 animate-pulse rounded bg-muted" />
-      <div className="h-10 animate-pulse rounded-md bg-muted/70" />
-      <div className="h-10 animate-pulse rounded-md bg-muted/70" />
-    </div>
-  );
-}
+import { CreateItemDialog } from "./create-item-dialog";
+import { DailyHighlightCard } from "./daily-highlight-card";
+import { FiltersCard } from "./filters-card";
+import { InsightsGrid } from "./insights-grid";
+import { ScheduleBlockDialog } from "./schedule-block-dialog";
 
 const getDerivedStatus = (item: ListItem, now: number): DerivedStatus => {
   void now;
@@ -620,8 +591,8 @@ export function DashboardContent({
     [addItem],
   );
 
-  const createTaskLauncher = isCreateTaskOpen ? (
-    <DeferredCreateItemDialog
+  const createTaskLauncher = (
+    <CreateItemDialog
       open={isCreateTaskOpen}
       onOpenChange={setIsCreateTaskOpen}
       variant="task"
@@ -631,10 +602,10 @@ export function DashboardContent({
       categoryOptions={categoryOptions}
       defaultCategory={fallbackCategory}
     />
-  ) : null;
+  );
 
-  const createRoutineLauncher = isCreateRoutineOpen ? (
-    <DeferredCreateItemDialog
+  const createRoutineLauncher = (
+    <CreateItemDialog
       open={isCreateRoutineOpen}
       onOpenChange={setIsCreateRoutineOpen}
       variant="routine"
@@ -644,7 +615,7 @@ export function DashboardContent({
       categoryOptions={categoryOptions}
       defaultCategory={fallbackCategory}
     />
-  ) : null;
+  );
 
   const renderListSection = (kind: "tasks" | "routines") => {
     const isTask = kind === "tasks";
@@ -701,14 +672,12 @@ export function DashboardContent({
     <div className={`space-y-6${isMobile && !isPopout ? " pb-32" : ""}`}>
       {createRoutineLauncher}
       {createTaskLauncher}
-      {isScheduleOpen ? (
-        <DeferredScheduleBlockDialog
-          isOpen={isScheduleOpen}
-          onOpenChange={handleScheduleOpenChange}
-          item={scheduleItem}
-          onSchedule={handleScheduleBlock}
-        />
-      ) : null}
+      <ScheduleBlockDialog
+        isOpen={isScheduleOpen}
+        onOpenChange={handleScheduleOpenChange}
+        item={scheduleItem}
+        onSchedule={handleScheduleBlock}
+      />
 
       {!isPopout ? (
         <div className="flex justify-between gap-2">
@@ -730,7 +699,7 @@ export function DashboardContent({
       ) : null}
 
       {!isPopout && isDailyHighlightEnabled ? (
-        <DeferredDailyHighlightCard
+        <DailyHighlightCard
           task={dailyTask}
           routine={dailyRoutine}
           derivedStatuses={derivedStatuses}
@@ -742,7 +711,7 @@ export function DashboardContent({
       ) : null}
 
       {!isPopout && showInsights ? (
-        <DeferredInsightsGrid
+        <InsightsGrid
           categoryChartData={categoryChartData}
           recurringBreakdownData={recurringBreakdownData}
           summaryText={`${items.length} total items`}
@@ -755,7 +724,7 @@ export function DashboardContent({
         />
       ) : null}
       {!isPopout && showFilters ? (
-        <DeferredFiltersCard
+        <FiltersCard
           statusFilter={statusFilter}
           onStatusChange={setStatusFilter}
           categoryFilter={categoryFilter}
