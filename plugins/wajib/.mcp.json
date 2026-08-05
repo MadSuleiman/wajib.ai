@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "wajib": {
+      "command": "/bin/sh",
+      "args": ["./scripts/launch-wajib-mcp"],
+      "cwd": "."
+    }
+  }
+}

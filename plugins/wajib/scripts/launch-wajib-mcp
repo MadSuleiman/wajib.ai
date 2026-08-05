@@ -1,0 +1,44 @@
+#!/bin/sh
+
+set -eu
+
+fail() {
+  printf '%s\n' "WAJIB_PLUGIN_LAUNCH_ERROR: $1" >&2
+  exit 1
+}
+
+if [ -n "${XDG_CONFIG_HOME:-}" ]; then
+  config_home=$XDG_CONFIG_HOME
+elif [ -n "${HOME:-}" ]; then
+  config_home=$HOME/.config
+else
+  fail "configuration home is unavailable"
+fi
+
+case "$config_home" in
+  /*) ;;
+  *) fail "configuration home must be absolute" ;;
+esac
+
+config_file=$config_home/wajib-plugin/repo-root
+[ -r "$config_file" ] || fail "repository configuration is unavailable"
+
+repo_root=
+while IFS= read -r configured_line || [ -n "$configured_line" ]; do
+  repo_root=$configured_line
+  break
+done < "$config_file"
+
+[ -n "$repo_root" ] || fail "repository configuration is empty"
+case "$repo_root" in
+  /*) ;;
+  *) fail "repository path must be absolute" ;;
+esac
+
+[ -d "$repo_root" ] || fail "configured repository is unavailable"
+[ -f "$repo_root/package.json" ] || fail "configured repository is not wajib.ai"
+[ -f "$repo_root/mcp/wajib/index.ts" ] || fail "MCP entrypoint is unavailable"
+command -v bun >/dev/null 2>&1 || fail "Bun is unavailable"
+
+cd "$repo_root" || fail "configured repository cannot be opened"
+exec bun --no-env-file mcp/wajib/index.ts

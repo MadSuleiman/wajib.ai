@@ -1,0 +1,20 @@
+{
+  "name": "wajib",
+  "version": "0.1.0",
+  "description": "Safely inspect and manage personal Wajib tasks and routines through a private repo-local MCP server.",
+  "author": {
+    "name": "Ahmad Suleiman"
+  },
+  "repository": "https://github.com/MadSuleiman/wajib.ai",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Wajib",
+    "shortDescription": "Safely manage Wajib tasks and routines",
+    "longDescription": "Inspect and manage personal Wajib tasks, routines, completion history, and preferences through a local RLS-protected MCP server with approvals, guarded change sets, audit metadata, and post-write verification.",
+    "developerName": "Ahmad Suleiman",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": "Review my Wajib items and safely make any changes I approve."
+  },
+  "mcpServers": "./.mcp.json"
+}

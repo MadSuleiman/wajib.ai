@@ -1,0 +1,20 @@
+{
+  "name": "wajib-local",
+  "interface": {
+    "displayName": "Wajib Local"
+  },
+  "plugins": [
+    {
+      "name": "wajib",
+      "source": {
+        "source": "local",
+        "path": "./plugins/wajib"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
