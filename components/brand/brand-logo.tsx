@@ -2,7 +2,8 @@ import type { SVGProps } from "react";
 
 import { cn } from "@/lib/utils";
 import {
-  ARABIC_PATH,
+  ARABIC_LETTERING_PATH,
+  ARABIC_WAW_TRANSFORM,
   LATIN_PATH,
   LATIN_VIEW_BOX,
   WAW_PATH,
@@ -55,7 +56,8 @@ export function BrandLockup({ className }: { className?: string }) {
       aria-label="Wajib — واجب"
       className={cn("text-primary", className)}
     >
-      <path d={ARABIC_PATH} />
+      <path d={ARABIC_LETTERING_PATH} />
+      <path d={WAW_PATH} transform={ARABIC_WAW_TRANSFORM} />
       <path d={LATIN_PATH} transform="translate(218 387)" />
     </svg>
   );

@@ -1,5 +1,5 @@
-const STATIC_CACHE = "wajib-static-with-intent-v2";
-const RUNTIME_CACHE = "wajib-runtime-with-intent-v2";
+const STATIC_CACHE = "wajib-static-soft-check-v3";
+const RUNTIME_CACHE = "wajib-runtime-soft-check-v3";
 const OFFLINE_URL = "/offline";
 const PRECACHE_URLS = [
   OFFLINE_URL,

@@ -3,7 +3,8 @@ import sharp from "sharp";
 
 import { brand } from "../lib/brand";
 import {
-  ARABIC_PATH,
+  ARABIC_LETTERING_PATH,
+  ARABIC_WAW_TRANSFORM,
   ARABIC_VIEW_BOX,
   LATIN_PATH,
   LATIN_VIEW_BOX,
@@ -18,6 +19,8 @@ const svg = (viewBox: string, body: string, label = "Wajib") =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" fill-rule="evenodd" role="img" aria-label="${label}">${body}</svg>\n`;
 const shape = (path: string, color: string) =>
   `<path fill="${color}" d="${path}"/>`;
+const arabicArtwork = (color: string) =>
+  `${shape(ARABIC_LETTERING_PATH, color)}<g transform="${ARABIC_WAW_TRANSFORM}">${shape(WAW_PATH, color)}</g>`;
 const save = (name: string, content: string | Buffer) =>
   writeFile(new URL(name, output), content);
 const raster = async (name: string, source: string, size: number) =>
@@ -34,7 +37,7 @@ for (const [name, color] of Object.entries({
   await save(`mark-${name}.svg`, svg(WAW_VIEW_BOX, shape(WAW_PATH, color)));
   await save(
     `wordmark-arabic-${name}.svg`,
-    svg(ARABIC_VIEW_BOX, shape(ARABIC_PATH, color), "واجب"),
+    svg(ARABIC_VIEW_BOX, arabicArtwork(color), "واجب"),
   );
   await save(
     `wordmark-latin-${name}.svg`,
@@ -44,7 +47,7 @@ for (const [name, color] of Object.entries({
     `lockup-${name}.svg`,
     svg(
       "0 0 805 495",
-      `${shape(ARABIC_PATH, color)}<g transform="translate(218 387)">${shape(LATIN_PATH, color)}</g>`,
+      `${arabicArtwork(color)}<g transform="translate(218 387)">${shape(LATIN_PATH, color)}</g>`,
       "Wajib — واجب",
     ),
   );
@@ -93,7 +96,7 @@ await raster(
 // All letterforms in the share card are paths; no fonts or raster logo embeds.
 const social = svg(
   "0 0 1200 630",
-  `<rect width="1200" height="630" fill="${brand.colors.limestone}"/><g transform="translate(330 104) scale(.67)">${shape(ARABIC_PATH, brand.colors.olive)}<g transform="translate(218 387)">${shape(LATIN_PATH, brand.colors.olive)}</g></g><path d="M470 515h260" stroke="${brand.colors.clay}" stroke-width="3"/>`,
+  `<rect width="1200" height="630" fill="${brand.colors.limestone}"/><g transform="translate(330 104) scale(.67)">${arabicArtwork(brand.colors.olive)}<g transform="translate(218 387)">${shape(LATIN_PATH, brand.colors.olive)}</g></g><path d="M470 515h260" stroke="${brand.colors.clay}" stroke-width="3"/>`,
 );
 await save("social-card.svg", social);
 await save(
@@ -101,5 +104,5 @@ await save(
   await sharp(Buffer.from(social)).resize(1200, 630).png().toBuffer(),
 );
 console.log(
-  "Generated the With Intent SVG, PNG, favicon, install and social assets.",
+  "Generated the Soft Check SVG, PNG, favicon, install and social assets.",
 );

@@ -1,10 +1,10 @@
-# Wajib · With Intent
+# Wajib · Soft Check
 
-Approved brand direction: the Arabic **و** mark, a bilingual **واجب / wajib** wordmark, and warm olive and limestone surfaces. The English/Arabic pairing connects Wajib to Ahmad's bilingual portfolio; the application uses the same Bricolage Grotesque family.
+Approved mark: **Soft Check**, an Arabic **و** with a rounded checkbox head and a checkmark tail. It appears both on its own and as the first letter of the bilingual **واجب / wajib** wordmark. The With Intent palette and typography continue: warm olive and limestone surfaces, and the same Bricolage Grotesque family as Ahmad's bilingual portfolio.
 
 ## Logo assets
 
-All production artwork is vector outlines, with no embedded raster image or required font. The approved letterforms are preserved in [`lib/brand-paths.ts`](../../lib/brand-paths.ts). The letter counters use the SVG `evenodd` fill rule; preserve it when importing the paths into another design tool.
+All production artwork is vector outlines, with no embedded raster image or required font. The approved letterforms are preserved in [`lib/brand-paths.ts`](../../lib/brand-paths.ts). The standalone mark and Arabic wordmark use the same `WAW_PATH`; `ARABIC_WAW_TRANSFORM` positions it beside the remaining letters. The letter counters use the SVG `evenodd` fill rule; preserve it when importing the paths into another design tool.
 
 Assets live in [`public/logos`](../../public/logos):
 

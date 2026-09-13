@@ -4,7 +4,7 @@ Wajib is a modern task and routine manager built with Next.js 16, Supabase, and 
 
 ## Highlights
 
-- **With Intent identity:** An original Arabic waw mark, bilingual wordmark, and warm olive/limestone light and forest/sage dark themes. [Brand assets and usage guide](docs/branding/README.md).
+- **Soft Check identity:** An Arabic waw mark with a rounded checkbox head and checkmark tail, a bilingual wordmark, and warm olive/limestone light and forest/sage dark themes. [Brand assets and usage guide](docs/branding/README.md).
 
 - **Personalized dashboard:** Filter by category, completion status, or grouping (day/week/month) to focus on the work that matters most.
 - **Task + routine support:** Create one-off tasks or recurring routines with priorities, recurrence types, and inline editing.
