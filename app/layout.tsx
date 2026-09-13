@@ -20,7 +20,7 @@ const bricolage = localFont({
 export const metadata: Metadata = {
   applicationName: "Wajib",
   metadataBase: new URL("https://wajib.ahmadsul.com"),
-  title: "Wajib — Make room for what matters",
+  title: "Wajib — واجب",
   description: brand.description,
   openGraph: {
     title: "Wajib — واجب",

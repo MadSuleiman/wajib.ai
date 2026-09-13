@@ -111,9 +111,6 @@ export function SettingsPanel() {
     <div className="space-y-6">
       <div className="border-b pb-5">
         <BrandLogo />
-        <p className="mt-3 text-sm text-muted-foreground">
-          Make room for what matters.
-        </p>
       </div>
       <h3 className="flex items-center space-x-2 text-2xl font-bold gap-2">
         <SettingsIcon />

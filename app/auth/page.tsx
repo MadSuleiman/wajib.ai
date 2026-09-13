@@ -109,10 +109,6 @@ export default function AuthPage() {
       <div className="mx-auto grid w-full max-w-6xl items-center gap-10 lg:grid-cols-2 lg:gap-24">
         <div className="relative flex flex-col items-center text-center lg:items-start lg:text-left">
           <BrandLockup className="w-52 sm:w-64 lg:w-full lg:max-w-sm" />
-          <p className="mt-7 max-w-sm text-2xl font-medium leading-tight text-primary sm:text-3xl lg:mt-10 lg:text-5xl">
-            Make room for
-            <br className="hidden lg:block" /> what matters.
-          </p>
           <p className="mt-4 hidden max-w-xs text-base leading-relaxed text-muted-foreground lg:block">
             A thoughtful home for your tasks, your routines, and the things you
             want to make time for.

@@ -1,8 +1,6 @@
 export const brand = {
   name: "Wajib",
-  tagline: "Make room for what matters.",
-  description:
-    "Make room for what matters. A thoughtful home for your tasks and daily routines.",
+  description: "A thoughtful home for your tasks and daily routines.",
   colors: {
     limestone: "#F4ECDD",
     olive: "#3E4C35",
