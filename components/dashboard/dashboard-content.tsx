@@ -712,9 +712,6 @@ export function DashboardContent({
                   ? "Your progress"
                   : "Today"}
             </h1>
-            <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-              A little space for what matters.
-            </p>
           </div>
           <div className="flex gap-2">
             <Button

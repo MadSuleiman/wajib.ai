@@ -121,7 +121,7 @@ export default function AuthPage() {
               Welcome back
             </h1>
             <p className="text-sm text-muted-foreground">
-              A little space for your day. Sign in to continue.
+              Sign in to continue.
             </p>
           </div>
 
