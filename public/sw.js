@@ -1,5 +1,5 @@
-const STATIC_CACHE = "wajib-static-v1";
-const RUNTIME_CACHE = "wajib-runtime-v1";
+const STATIC_CACHE = "wajib-static-with-intent-v2";
+const RUNTIME_CACHE = "wajib-runtime-with-intent-v2";
 const OFFLINE_URL = "/offline";
 const PRECACHE_URLS = [
   OFFLINE_URL,
@@ -7,6 +7,8 @@ const PRECACHE_URLS = [
   "/logos/logo.png",
   "/logos/logo-white.png",
   "/logos/apple-touch-icon.png",
+  "/logos/favicon.svg",
+  "/logos/logo.svg",
 ];
 
 self.addEventListener("install", (event) => {

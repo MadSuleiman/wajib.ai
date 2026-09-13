@@ -1,13 +1,15 @@
+import { brand } from "@/lib/brand";
+
 const manifest = {
   id: "/",
   name: "wajib",
   short_name: "Wajib",
-  description: "An app to help you with your daily tasks or purchasing",
+  description: brand.description,
   start_url: "/",
   scope: "/",
   display: "standalone",
-  background_color: "#ffffff",
-  theme_color: "#000000",
+  background_color: brand.colors.limestone,
+  theme_color: brand.colors.limestone,
   icons: [
     {
       src: "/logos/logo.svg",

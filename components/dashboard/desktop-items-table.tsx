@@ -97,6 +97,7 @@ export const DesktopItemsTable = React.memo(function DesktopItemsTable({
                 disabled={item.item_kind === "routine" && item.local_only}
                 className="mt-1 flex h-5 w-5 items-center justify-center rounded-full border text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2"
                 aria-pressed={isCompleted}
+                aria-label={`${isCompleted ? "Mark as active" : "Mark as complete"}: ${item.title}`}
               >
                 {isCompleted ? (
                   <CheckCircle2 className="h-4 w-4 text-primary" />

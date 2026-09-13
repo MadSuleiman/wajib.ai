@@ -416,7 +416,7 @@ function MobileListItem({
           scale: { duration: isCompleting ? 0.18 : 0.14 },
         }}
         className={cn(
-          "rounded-2xl border bg-card/50 p-4 shadow-sm backdrop-blur touch-pan-y",
+          "rounded-2xl border bg-card p-4 touch-pan-y",
           isCompleting && "pointer-events-none",
         )}
       >

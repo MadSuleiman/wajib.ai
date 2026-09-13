@@ -1,20 +1,40 @@
 import type React from "react";
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import { Suspense } from "react";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/app/theme-provider";
 import { ZoomPrevention } from "@/components/app/anti-zoom";
 import { ServiceWorkerProvider } from "@/components/app/service-worker-provider";
-import { DeferredGrainient } from "@/components/app/deferred-grainient";
+import { brand } from "@/lib/brand";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-arabicStyle" });
+const bricolage = localFont({
+  src: "./fonts/bricolage-grotesque-latin.woff2",
+  variable: "--font-bricolage",
+  display: "swap",
+  weight: "200 800",
+  fallback: ["Arial", "sans-serif"],
+});
 
 export const metadata: Metadata = {
   applicationName: "Wajib",
-  title: "wajib",
-  description: "An app for assorting your tasks",
+  metadataBase: new URL("https://wajib.ahmadsul.com"),
+  title: "Wajib — Make room for what matters",
+  description: brand.description,
+  openGraph: {
+    title: "Wajib — واجب",
+    description: brand.description,
+    images: [
+      {
+        url: "/logos/social-card.png",
+        width: 1200,
+        height: 630,
+        alt: "Wajib — واجب",
+      },
+    ],
+  },
+  twitter: { card: "summary_large_image", images: ["/logos/social-card.png"] },
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
@@ -27,14 +47,13 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        media: "(prefers-color-scheme: light)",
-        url: "/logos/logo.png",
-        href: "/logos/logo.png",
+        url: "/logos/favicon.svg",
+        type: "image/svg+xml",
       },
       {
-        media: "(prefers-color-scheme: dark)",
-        url: "/logos/logo-white.png",
-        href: "/logos/logo-white.png",
+        url: "/logos/favicon-32x32.png",
+        type: "image/png",
+        sizes: "32x32",
       },
     ],
     apple: [
@@ -47,12 +66,12 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   width: "device-width",
-  initialScale: 0.9,
-  maximumScale: 0.9,
+  initialScale: 1,
+  maximumScale: 1,
   userScalable: false,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#111111" },
+    { media: "(prefers-color-scheme: light)", color: brand.colors.limestone },
+    { media: "(prefers-color-scheme: dark)", color: brand.colors.forest },
   ],
 };
 
@@ -63,7 +82,7 @@ export default async function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={bricolage.variable}>
         <ZoomPrevention />
         <ServiceWorkerProvider />
         <ThemeProvider
@@ -72,38 +91,10 @@ export default async function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <div className="grainient-surface">
-            <div className="grainient-layer" aria-hidden="true" />
-            <DeferredGrainient
-              className="grainient-layer"
-              color1="var(--grainient-color-1)"
-              color2="var(--grainient-color-2)"
-              color3="var(--grainient-color-3)"
-              timeSpeed={0.16}
-              colorBalance={-0.03}
-              warpStrength={0.7}
-              warpFrequency={3.4}
-              warpSpeed={1.1}
-              warpAmplitude={95}
-              blendAngle={-12}
-              blendSoftness={0.12}
-              rotationAmount={240}
-              noiseScale={1.4}
-              grainAmount={0.02}
-              grainScale={1.8}
-              grainAnimated={false}
-              contrast={1.08}
-              gamma={1}
-              saturation={0.86}
-              centerX={0}
-              centerY={0}
-              zoom={1}
-            />
-            <div className="grainient-content">
-              <Suspense fallback={<div className="min-h-screen" />}>
-                {children}
-              </Suspense>
-            </div>
+          <div className="app-surface">
+            <Suspense fallback={<div className="min-h-screen" />}>
+              {children}
+            </Suspense>
           </div>
           <Toaster />
         </ThemeProvider>

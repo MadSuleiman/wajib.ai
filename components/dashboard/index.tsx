@@ -66,7 +66,7 @@ export default function Dashboard({
         initialCategories={initialCategories}
         initialLastSyncAt={initialLastSyncAt}
       >
-        <div className="w-full px-4 py-4 md:px-8">
+        <div className="dashboard-width py-7 md:py-10">
           <div className="mx-auto max-w-full">
             <SyncStatusBanner />
           </div>

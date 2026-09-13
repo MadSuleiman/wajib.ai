@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
-import { Settings } from "lucide-react";
+import { Plus, Repeat2, Settings } from "lucide-react";
+import { BrandLogo } from "@/components/brand/brand-logo";
 
 import { cn } from "@/lib/utils";
 import { useDashboardView } from "@/hooks/use-dashboard-view";
@@ -10,7 +11,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { useCreationDialogs } from "@/components/dashboard/creation-dialogs-context";
 
 export function Navigation() {
-  const { view, setView } = useDashboardView();
+  const { view, setView, setSection } = useDashboardView();
   const { setIsCreateTaskOpen, setIsCreateRoutineOpen } = useCreationDialogs();
 
   useEffect(() => {
@@ -49,46 +50,47 @@ export function Navigation() {
 
   const goHome = useCallback(() => {
     setView("list");
+    setSection("tasks");
     if (typeof window !== "undefined") {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
-  }, [setView]);
+  }, [setView, setSection]);
 
   return (
-    <header className="sticky top-0 z-10 border-b bg-transparent pt-[env(safe-area-inset-top)] backdrop-blur-sm">
-      <div className="flex h-14 items-center justify-between px-4 md:px-6">
+    <header className="dashboard-header">
+      <div className="dashboard-width flex h-20 items-center justify-between">
         <button
           type="button"
           onClick={goHome}
-          className="flex items-center gap-2 font-semibold"
+          className="rounded-lg outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
+          aria-label="Go to dashboard"
         >
-          <span className="inline">wajib</span>
-          <span className="sr-only">Go to dashboard</span>
+          <BrandLogo />
         </button>
         <div className="flex items-center gap-2">
           <Button
             size="sm"
             variant="outline"
-            className="gap-2"
+            className="hidden gap-2 md:inline-flex"
             onClick={() => setIsCreateRoutineOpen(true)}
           >
-            Create routine
+            <Repeat2 aria-hidden="true" /> Create routine
             <Kbd aria-hidden="true">R</Kbd>
           </Button>
           <Button
             size="sm"
-            variant="outline"
-            className="gap-2"
+            variant="default"
+            className="hidden gap-2 md:inline-flex"
             onClick={() => setIsCreateTaskOpen(true)}
           >
-            Create task
+            <Plus aria-hidden="true" /> Create task
             <Kbd aria-hidden="true">T</Kbd>
           </Button>
           <button
             type="button"
             onClick={openSettings}
             className={cn(
-              "flex items-center justify-center rounded-full p-2 text-muted-foreground transition-colors hover:text-primary",
+              "flex size-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               view === "settings" && "text-primary",
             )}
             aria-pressed={view === "settings"}

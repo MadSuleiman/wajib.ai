@@ -14,6 +14,9 @@ test.describe("mobile happy path", () => {
     const routineTitle = `E2E routine ${Date.now()}`;
 
     await page.goto("/auth");
+    await expect(
+      page.getByRole("img", { name: "Wajib — واجب", exact: true }),
+    ).toBeVisible();
 
     await page
       .getByLabel("Email")
@@ -28,6 +31,9 @@ test.describe("mobile happy path", () => {
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole("tab", { name: "Tasks" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Routines" })).toBeVisible();
+    await expect(
+      page.getByRole("img", { name: "Wajib", exact: true }),
+    ).toBeVisible();
 
     await page
       .getByRole("button", { name: /Create task/i })
@@ -59,7 +65,41 @@ test.describe("mobile happy path", () => {
     await page.getByRole("tab", { name: "Routines" }).click();
     await expect(page.getByText(routineTitle)).toBeVisible();
 
+    await page.getByRole("tab", { name: "Insights", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Task insights" }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Go to dashboard", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Today", exact: true }),
+    ).toBeVisible();
+
     await page.getByRole("button", { name: "Open settings" }).click();
     await expect(page.getByText("Install app")).toBeVisible();
+
+    await page.getByRole("combobox", { name: "Theme", exact: true }).click();
+    await page.getByRole("option", { name: "Dark", exact: true }).click();
+    await expect(page.locator("html")).toHaveClass(/dark/);
+    await expect(
+      page.locator('meta[name="theme-color"]').first(),
+    ).toHaveAttribute("content", "#20271F");
+    await page.getByRole("combobox", { name: "Theme", exact: true }).click();
+    await page.getByRole("option", { name: "Light", exact: true }).click();
+    await expect(page.locator("html")).not.toHaveClass(/dark/);
+    await expect(
+      page.locator('meta[name="theme-color"]').first(),
+    ).toHaveAttribute("content", "#F4ECDD");
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+    const overflows = await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth,
+    );
+    expect(overflows).toBe(false);
+    const dock = await page.locator(".mobile-dashboard-dock").boundingBox();
+    expect(dock).not.toBeNull();
+    expect(Math.round(dock!.y + dock!.height)).toBe(
+      page.viewportSize()!.height,
+    );
   });
 });

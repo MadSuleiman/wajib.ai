@@ -46,8 +46,8 @@ describe("dashboard smoothness regressions", () => {
     expect(source).toContain(
       'import { ScheduleBlockDialog } from "./schedule-block-dialog";',
     );
-    expect(source).toContain('TabsTrigger value="tasks"');
-    expect(source).toContain('TabsTrigger value="routines"');
+    expect(source).toMatch(/<TabsTrigger\s+value="tasks"/);
+    expect(source).toMatch(/<TabsTrigger\s+value="routines"/);
     expect(source).not.toContain("next/dynamic");
     expect(source).not.toContain("DeferredCreateItemDialog");
     expect(source).not.toContain("DeferredScheduleBlockDialog");

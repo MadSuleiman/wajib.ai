@@ -127,7 +127,7 @@ function DataTableInner<T>({
 
   if (!data.length) {
     return (
-      <div className="rounded-lg border bg-card/50 backdrop-blur">
+      <div className="rounded-lg border bg-card">
         <div className="p-6 text-center text-sm text-muted-foreground">
           {emptyState ?? "No data available."}
         </div>
@@ -136,7 +136,7 @@ function DataTableInner<T>({
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border bg-card/50 backdrop-blur">
+    <div className="overflow-hidden rounded-lg border bg-card">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">

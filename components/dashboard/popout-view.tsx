@@ -5,6 +5,9 @@ import { CreationDialogsProvider } from "@/components/dashboard/creation-dialogs
 import { DashboardContent } from "@/components/dashboard/dashboard-content";
 import type { Category, ListItem } from "@/types";
 import { DailyHighlightPreferenceProvider } from "@/hooks/use-daily-highlight-preference";
+import { BrandLogo } from "@/components/brand/brand-logo";
+import Link from "next/link";
+import { DashboardViewProvider } from "@/hooks/use-dashboard-view";
 
 export function PopoutView({
   userId,
@@ -22,22 +25,31 @@ export function PopoutView({
   initialLastSyncAt: string;
 }) {
   return (
-    <DailyHighlightPreferenceProvider
-      userId={userId}
-      initialEnabled={initialDailyHighlightEnabled}
-    >
-      <SupabaseProvider
-        initialUserId={userId}
-        initialItems={initialItems}
-        initialCategories={initialCategories}
-        initialLastSyncAt={initialLastSyncAt}
+    <DashboardViewProvider>
+      <DailyHighlightPreferenceProvider
+        userId={userId}
+        initialEnabled={initialDailyHighlightEnabled}
       >
-        <CreationDialogsProvider>
-          <div className="min-h-screen px-4 py-4 md:px-6">
-            <DashboardContent focusKind={focusKind} isPopout />
-          </div>
-        </CreationDialogsProvider>
-      </SupabaseProvider>
-    </DailyHighlightPreferenceProvider>
+        <SupabaseProvider
+          initialUserId={userId}
+          initialItems={initialItems}
+          initialCategories={initialCategories}
+          initialLastSyncAt={initialLastSyncAt}
+        >
+          <CreationDialogsProvider>
+            <div className="min-h-screen px-4 py-4 md:px-6">
+              <Link
+                href="/"
+                className="mb-6 inline-flex rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="Go to dashboard"
+              >
+                <BrandLogo />
+              </Link>
+              <DashboardContent focusKind={focusKind} isPopout />
+            </div>
+          </CreationDialogsProvider>
+        </SupabaseProvider>
+      </DailyHighlightPreferenceProvider>
+    </DashboardViewProvider>
   );
 }

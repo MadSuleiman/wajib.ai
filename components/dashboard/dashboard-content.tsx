@@ -8,11 +8,19 @@ import {
   useSyncExternalStore,
 } from "react";
 import { addMinutes } from "date-fns";
-import { ArrowUpRight, Filter, Plus } from "lucide-react";
+import {
+  ArrowUpRight,
+  BarChart3,
+  CheckCircle2,
+  Filter,
+  Plus,
+  Repeat2,
+} from "lucide-react";
 
 import { useSupabase } from "@/components/dashboard/supabase-provider";
 import { useCreationDialogs } from "@/components/dashboard/creation-dialogs-context";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useDashboardView } from "@/hooks/use-dashboard-view";
 import { useDailyHighlightPreference } from "@/hooks/use-daily-highlight-preference";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -182,7 +190,7 @@ export function DashboardContent({
   const [timeMarker, setTimeMarker] = useState(() => Date.now());
   const [showInsights, setShowInsights] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [activeTab, setActiveTab] = useState<"tasks" | "routines">("tasks");
+  const { section: activeTab, setSection: setActiveTab } = useDashboardView();
   const [scheduleItem, setScheduleItem] = useState<ListItem | null>(null);
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
   const { isEnabled: isDailyHighlightEnabled } = useDailyHighlightPreference();
@@ -642,7 +650,9 @@ export function DashboardContent({
               </Button>
             ) : null}
           </div>
-          <p className="text-xs text-muted-foreground">{summaryText}</p>
+          <p className="hidden text-xs text-muted-foreground md:block">
+            {summaryText}
+          </p>
         </div>
         <ItemsView
           isMobile={isMobile}
@@ -667,9 +677,22 @@ export function DashboardContent({
   };
 
   const focusedSection = focusKind ? renderListSection(focusKind) : null;
+  const insights = (
+    <InsightsGrid
+      categoryChartData={categoryChartData}
+      recurringBreakdownData={recurringBreakdownData}
+      summaryText={`${items.length} total items`}
+      activeCount={counts.tasks.activeCount + counts.routines.activeCount}
+      completedCount={
+        counts.tasks.completedCount + counts.routines.completedCount
+      }
+      categoryCount={categoryOptions.length}
+      recurringCount={recurringCount}
+    />
+  );
 
   return (
-    <div className={`space-y-6${isMobile && !isPopout ? " pb-32" : ""}`}>
+    <div className={`space-y-6${isMobile && !isPopout ? " pb-36" : ""}`}>
       {createRoutineLauncher}
       {createTaskLauncher}
       <ScheduleBlockDialog
@@ -680,26 +703,54 @@ export function DashboardContent({
       />
 
       {!isPopout ? (
-        <div className="flex justify-between gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowInsights((prev) => !prev)}
-          >
-            {showInsights ? "Hide task insights" : "Show task insights"}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowFilters((prev) => !prev)}
-          >
-            {showFilters ? "Hide filters" : "Show filters"}
-          </Button>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-semibold leading-tight text-primary md:text-5xl">
+              {isMobile && activeTab === "routines"
+                ? "Routines"
+                : isMobile && activeTab === "insights"
+                  ? "Your progress"
+                  : "Today"}
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground sm:text-base">
+              A little space for what matters.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden md:inline-flex"
+              aria-pressed={showInsights}
+              onClick={() => setShowInsights((prev) => !prev)}
+            >
+              <BarChart3 aria-hidden="true" />
+              {showInsights ? "Hide task insights" : "Show task insights"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              aria-expanded={showFilters}
+              onClick={() => setShowFilters((prev) => !prev)}
+            >
+              <Filter aria-hidden="true" />
+              {showFilters ? "Hide filters" : "Filters"}
+            </Button>
+          </div>
         </div>
       ) : null}
 
-      {!isPopout && isDailyHighlightEnabled ? (
+      {!isPopout &&
+      isDailyHighlightEnabled &&
+      (!isMobile || activeTab !== "insights") ? (
         <DailyHighlightCard
+          focusKind={
+            isMobile
+              ? activeTab === "routines"
+                ? "routine"
+                : "task"
+              : undefined
+          }
           task={dailyTask}
           routine={dailyRoutine}
           derivedStatuses={derivedStatuses}
@@ -710,19 +761,7 @@ export function DashboardContent({
         />
       ) : null}
 
-      {!isPopout && showInsights ? (
-        <InsightsGrid
-          categoryChartData={categoryChartData}
-          recurringBreakdownData={recurringBreakdownData}
-          summaryText={`${items.length} total items`}
-          activeCount={counts.tasks.activeCount + counts.routines.activeCount}
-          completedCount={
-            counts.tasks.completedCount + counts.routines.completedCount
-          }
-          categoryCount={categoryOptions.length}
-          recurringCount={recurringCount}
-        />
-      ) : null}
+      {!isPopout && !isMobile && showInsights ? insights : null}
       {!isPopout && showFilters ? (
         <FiltersCard
           statusFilter={statusFilter}
@@ -744,62 +783,83 @@ export function DashboardContent({
         <Tabs
           value={activeTab}
           onValueChange={(value) =>
-            setActiveTab(value === "routines" ? "routines" : "tasks")
+            setActiveTab(
+              value === "routines" || value === "insights" ? value : "tasks",
+            )
           }
-          className="space-y-4"
+          className="gap-0"
         >
-          <TabsList
-            className="grid w-full grid-cols-2 bg-muted"
-            aria-label="Dashboard sections"
-          >
-            <TabsTrigger value="tasks">Tasks</TabsTrigger>
-            <TabsTrigger value="routines">Routines</TabsTrigger>
-          </TabsList>
+          <div className="mobile-dashboard-dock">
+            <div className="mx-auto flex max-w-lg gap-2">
+              <Button
+                className="h-11 flex-1 rounded-xl"
+                aria-label={
+                  activeTab === "routines" ? "Create routine" : "Create task"
+                }
+                onClick={() =>
+                  activeTab === "routines"
+                    ? setIsCreateRoutineOpen(true)
+                    : setIsCreateTaskOpen(true)
+                }
+              >
+                <Plus aria-hidden="true" />
+                {activeTab === "routines" ? "Add routine" : "Add task"}
+              </Button>
+              <Button
+                variant="outline"
+                className="size-11 rounded-xl"
+                aria-label={
+                  activeTab === "routines" ? "Create task" : "Create routine"
+                }
+                onClick={() =>
+                  activeTab === "routines"
+                    ? setIsCreateTaskOpen(true)
+                    : setIsCreateRoutineOpen(true)
+                }
+              >
+                {activeTab === "routines" ? (
+                  <Plus aria-hidden="true" />
+                ) : (
+                  <Repeat2 aria-hidden="true" />
+                )}
+              </Button>
+            </div>
+            <TabsList
+              className="mx-auto mt-2 grid h-14 w-full max-w-lg grid-cols-3 border-0 bg-transparent p-0 shadow-none backdrop-blur-none"
+              aria-label="Dashboard sections"
+            >
+              <TabsTrigger
+                value="tasks"
+                className="h-12 flex-col gap-1 rounded-lg border-0 py-2 text-xs shadow-none data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none dark:data-[state=active]:bg-transparent"
+              >
+                <CheckCircle2 className="size-5" aria-hidden="true" /> Tasks
+              </TabsTrigger>
+              <TabsTrigger
+                value="routines"
+                className="h-12 flex-col gap-1 rounded-lg border-0 py-2 text-xs shadow-none data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none dark:data-[state=active]:bg-transparent"
+              >
+                <Repeat2 className="size-5" aria-hidden="true" /> Routines
+              </TabsTrigger>
+              <TabsTrigger
+                value="insights"
+                className="h-12 flex-col gap-1 rounded-lg border-0 py-2 text-xs shadow-none data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none dark:data-[state=active]:bg-transparent"
+              >
+                <BarChart3 className="size-5" aria-hidden="true" /> Insights
+              </TabsTrigger>
+            </TabsList>
+          </div>
           <TabsContent value="tasks">{renderListSection("tasks")}</TabsContent>
           <TabsContent value="routines">
             {renderListSection("routines")}
           </TabsContent>
+          <TabsContent value="insights">{insights}</TabsContent>
         </Tabs>
       ) : (
-        <div className="grid grid-cols-2 gap-6">
+        <div className="space-y-8">
           {renderListSection("tasks")}
           {renderListSection("routines")}
         </div>
       )}
-
-      {isMobile && !isPopout ? (
-        <div
-          className="pointer-events-none fixed inset-x-0 z-30 flex justify-between"
-          style={{
-            bottom: "calc(env(safe-area-inset-bottom, 0px) + 2.5rem)",
-            paddingLeft:
-              "max(1rem, calc(env(safe-area-inset-left, 0px) + 0.75rem))",
-            paddingRight:
-              "max(1rem, calc(env(safe-area-inset-right, 0px) + 0.75rem))",
-          }}
-        >
-          <Button
-            type="button"
-            variant="default"
-            size="sm"
-            className="pointer-events-auto h-12 rounded-full border border-foreground/20 bg-foreground px-4 text-background shadow-lg shadow-black/25 hover:bg-foreground/90"
-            onClick={() => setIsCreateRoutineOpen(true)}
-          >
-            <Plus className="h-4 w-4" />
-            Routine
-          </Button>
-          <Button
-            type="button"
-            variant="default"
-            size="sm"
-            className="pointer-events-auto h-12 rounded-full border border-foreground/20 bg-foreground px-4 text-background shadow-lg shadow-black/25 hover:bg-foreground/90"
-            onClick={() => setIsCreateTaskOpen(true)}
-          >
-            <Plus className="h-4 w-4" />
-            Task
-          </Button>
-        </div>
-      ) : null}
     </div>
   );
 }

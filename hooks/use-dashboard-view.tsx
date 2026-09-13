@@ -10,10 +10,13 @@ import {
 } from "react";
 
 export type DashboardView = "list" | "settings";
+export type DashboardSection = "tasks" | "routines" | "insights";
 
 interface DashboardViewContextValue {
   view: DashboardView;
   setView: (view: DashboardView) => void;
+  section: DashboardSection;
+  setSection: (section: DashboardSection) => void;
 }
 
 const DashboardViewContext = createContext<DashboardViewContextValue | null>(
@@ -28,6 +31,7 @@ export function DashboardViewProvider({
   children: ReactNode;
 }) {
   const [view, setViewState] = useState<DashboardView>(initialView);
+  const [section, setSection] = useState<DashboardSection>("tasks");
 
   const setView = useCallback((nextView: DashboardView) => {
     setViewState(nextView);
@@ -37,8 +41,10 @@ export function DashboardViewProvider({
     () => ({
       view,
       setView,
+      section,
+      setSection,
     }),
-    [view, setView],
+    [view, setView, section],
   );
 
   return (

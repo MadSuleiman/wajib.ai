@@ -30,6 +30,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { useDailyHighlightPreference } from "@/hooks/use-daily-highlight-preference";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
+import { BrandLogo } from "@/components/brand/brand-logo";
 
 interface ErrorWithMessage {
   message: string;
@@ -108,6 +109,12 @@ export function SettingsPanel() {
 
   return (
     <div className="space-y-6">
+      <div className="border-b pb-5">
+        <BrandLogo />
+        <p className="mt-3 text-sm text-muted-foreground">
+          Make room for what matters.
+        </p>
+      </div>
       <h3 className="flex items-center space-x-2 text-2xl font-bold gap-2">
         <SettingsIcon />
         Settings
